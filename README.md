@@ -42,7 +42,7 @@ Choose any of the three simple methods below:
 
 #### Method 1: Universal One-Line Installer (Linux / macOS / WSL)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ilyan321/aegis-cli/main/install.sh | bash
+curl -fsSL https://aegis.ilyankhan.tech | bash
 ```
 
 #### Method 2: Via Go (for Go developers)

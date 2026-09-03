@@ -2,7 +2,7 @@
 set -e
 
 # Aegis CLI Universal Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/Ilyan321/aegis-cli/main/install.sh | bash
+# Usage: curl -fsSL https://aegis.ilyankhan.tech | bash
 
 REPO="Ilyan321/aegis-cli"
 BINARY_NAME="aegis"
