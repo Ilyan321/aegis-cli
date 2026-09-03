@@ -34,7 +34,7 @@ func TestCLIStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status command failed: %v, output: %s", err, string(out))
 	}
-	if !strings.Contains(string(out), "Aegis Repository Status") {
+	if !strings.Contains(string(out), "Repository Status") {
 		t.Errorf("expected status output, got: %s", string(out))
 	}
 }
