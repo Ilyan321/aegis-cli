@@ -259,6 +259,28 @@ func runCheckCommand(args []string) {
 		findings = registry.VerifyAll(context.Background(), findings)
 	}
 
+	criticalCount := 0
+	highCount := 0
+	mediumCount := 0
+	lowCount := 0
+	activeLeaks := 0
+
+	for _, f := range findings {
+		switch f.Severity {
+		case models.SeverityCritical:
+			criticalCount++
+		case models.SeverityHigh:
+			highCount++
+		case models.SeverityMedium:
+			mediumCount++
+		case models.SeverityLow:
+			lowCount++
+		}
+		if f.Verification.Status == models.StatusActive {
+			activeLeaks++
+		}
+	}
+
 	report := &models.ScanReport{
 		Version:           Version,
 		ScanTarget:        "Terminal Input String",
@@ -268,6 +290,11 @@ func runCheckCommand(args []string) {
 		TotalFilesScanned: 1,
 		TotalLinesScanned: 1,
 		TotalFindings:     len(findings),
+		CriticalCount:     criticalCount,
+		HighCount:         highCount,
+		MediumCount:       mediumCount,
+		LowCount:          lowCount,
+		ActiveLeaksCount:  activeLeaks,
 		Findings:          findings,
 		FindingsHash:      models.ComputeReportHash(findings),
 	}
