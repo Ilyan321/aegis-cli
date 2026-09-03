@@ -129,46 +129,62 @@ func GetRangeDiffOutput(baseRef, headRef string) (io.Reader, error) {
 
 // ScanStaged parses staged changes and scans each line through the Aegis analyzer engine.
 func ScanStaged(engine *analyzer.Engine) ([]models.Finding, error) {
+	findings, _, _, err := ScanStagedWithStats(engine)
+	return findings, err
+}
+
+// ScanStagedWithStats scans staged lines and returns findings, unique files count, and lines count.
+func ScanStagedWithStats(engine *analyzer.Engine) ([]models.Finding, int, int, error) {
 	diffReader, err := GetStagedDiffOutput()
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
 	stagedLines, err := ParseUnifiedDiff(diffReader)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
+	fileMap := make(map[string]struct{})
 	var findings []models.Finding
 	for _, sl := range stagedLines {
+		fileMap[sl.FilePath] = struct{}{}
 		lineFindings := engine.ScanLine(sl.FilePath, sl.LineNumber, sl.Content)
 		if len(lineFindings) > 0 {
 			findings = append(findings, lineFindings...)
 		}
 	}
 
-	return findings, nil
+	return findings, len(fileMap), len(stagedLines), nil
 }
 
 // ScanRange parses merge-base PR diffs and scans each line through the Aegis analyzer engine.
 func ScanRange(engine *analyzer.Engine, baseRef, headRef string) ([]models.Finding, error) {
+	findings, _, _, err := ScanRangeWithStats(engine, baseRef, headRef)
+	return findings, err
+}
+
+// ScanRangeWithStats scans range diff lines and returns findings, unique files count, and lines count.
+func ScanRangeWithStats(engine *analyzer.Engine, baseRef, headRef string) ([]models.Finding, int, int, error) {
 	diffReader, err := GetRangeDiffOutput(baseRef, headRef)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
 	stagedLines, err := ParseUnifiedDiff(diffReader)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
+	fileMap := make(map[string]struct{})
 	var findings []models.Finding
 	for _, sl := range stagedLines {
+		fileMap[sl.FilePath] = struct{}{}
 		lineFindings := engine.ScanLine(sl.FilePath, sl.LineNumber, sl.Content)
 		if len(lineFindings) > 0 {
 			findings = append(findings, lineFindings...)
 		}
 	}
 
-	return findings, nil
+	return findings, len(fileMap), len(stagedLines), nil
 }

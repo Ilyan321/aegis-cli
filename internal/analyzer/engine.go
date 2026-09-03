@@ -69,41 +69,53 @@ func IsBinary(header []byte) bool {
 
 // ScanFile scans an individual file path from disk.
 func (e *Engine) ScanFile(filePath string) ([]models.Finding, error) {
+	findings, _, err := e.ScanFileWithStats(filePath)
+	return findings, err
+}
+
+// ScanFileWithStats scans an individual file path from disk and returns findings and total lines scanned.
+func (e *Engine) ScanFileWithStats(filePath string) ([]models.Finding, int, error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Skip files exceeding max size limit (PRD Section 6)
 	if fileInfo.Size() > MaxFileSize {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	// Skip directories and symlinks to directories
 	if fileInfo.IsDir() {
-		return nil, nil
+		return nil, 0, nil
 	}
 
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
 
-	return e.ScanReader(filePath, f)
+	return e.ScanReaderWithStats(filePath, f)
 }
 
 // ScanReader streams content through Tier 1 rejection and Tier 2 DFA/entropy analysis.
 func (e *Engine) ScanReader(filePath string, r io.Reader) ([]models.Finding, error) {
+	findings, _, err := e.ScanReaderWithStats(filePath, r)
+	return findings, err
+}
+
+// ScanReaderWithStats streams content through Tier 1 rejection and Tier 2 DFA/entropy analysis, returning findings and lines count.
+func (e *Engine) ScanReaderWithStats(filePath string, r io.Reader) ([]models.Finding, int, error) {
 	bufReader := bufio.NewReader(r)
 
 	// Tier 1 Gatekeeper: Binary inspection
 	header, err := bufReader.Peek(BinaryInspectBytes)
 	if err != nil && err != io.EOF && len(header) == 0 {
-		return nil, err
+		return nil, 0, err
 	}
 	if IsBinary(header) {
-		return nil, nil // Silently skip binary files
+		return nil, 0, nil // Silently skip binary files
 	}
 
 	var findings []models.Finding
@@ -124,10 +136,10 @@ func (e *Engine) ScanReader(filePath string, r io.Reader) ([]models.Finding, err
 	}
 
 	if err := scanner.Err(); err != nil {
-		return findings, fmt.Errorf("error reading %s: %w", filePath, err)
+		return findings, lineNum, fmt.Errorf("error reading %s: %w", filePath, err)
 	}
 
-	return findings, nil
+	return findings, lineNum, nil
 }
 
 // ScanLine evaluates an individual line of text against all configured rules and heuristics.

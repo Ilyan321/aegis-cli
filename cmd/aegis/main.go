@@ -53,13 +53,13 @@ func main() {
 		runScanCommand(os.Args[2:])
 
 	default:
-		// Check if user directly ran `aegis [path]`
-		if !strings.HasPrefix(command, "-") {
+		// Check if user directly ran `aegis [path]` or `aegis --flags`
+		if strings.HasPrefix(command, "-") {
 			runScanCommand(os.Args[1:])
 			return
 		}
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'aegis --help' for usage.\n", command)
-		os.Exit(2)
+		// Positional path passed directly: aegis [path]
+		runScanCommand(os.Args[1:])
 	}
 }
 
@@ -69,15 +69,18 @@ func printUsage() {
 	fmt.Println("  aegis scan [path] [flags]     Scan path or repository for secret leaks")
 	fmt.Println("  aegis scan --staged           Scan staged git changes (pre-commit)")
 	fmt.Println("  aegis scan --history          Scan deep git DAG commit history")
+	fmt.Println("  aegis scan --range=BASE...HEAD Scan PR merge-base range (CI/CD)")
 	fmt.Println("  aegis hook install            Install git pre-commit hook")
 	fmt.Println("  aegis hook uninstall          Remove git pre-commit hook")
 	fmt.Println("  aegis version                 Print version information")
 	fmt.Println("\nScan Flags:")
 	fmt.Println("  --staged                      Scan git staging buffer (default: false)")
 	fmt.Println("  --history                     Scan entire git commit DAG history (default: false)")
+	fmt.Println("  --range=<base>...<head>       Scan git commit range diff")
 	fmt.Println("  --verify                      Actively verify candidate tokens against provider APIs (default: false)")
 	fmt.Println("  --format=console|json         Output format (default: console)")
 	fmt.Println("  --output=<path>               Write structured report to file")
+	fmt.Println("  --fail-on=critical|high|medium Fail threshold for exit code 1 (default: critical)")
 	fmt.Println("  --no-color                    Disable ANSI color codes")
 }
 
@@ -122,9 +125,11 @@ func runScanCommand(args []string) {
 
 	stagedFlag := fs.Bool("staged", false, "Scan staged changes in git index")
 	historyFlag := fs.Bool("history", false, "Scan full git DAG commit history")
+	rangeFlag := fs.String("range", "", "Scan git diff range e.g. origin/main...HEAD")
 	verifyFlag := fs.Bool("verify", false, "Perform live zero-privilege token verification")
 	formatFlag := fs.String("format", "console", "Output report format (console or json)")
 	outputFlag := fs.String("output", "", "Output file path for report")
+	failOnFlag := fs.String("fail-on", "critical", "Failure threshold for exit code: critical, high, medium, low")
 	noColorFlag := fs.Bool("no-color", false, "Disable color output")
 
 	if err := fs.Parse(args); err != nil {
@@ -148,13 +153,30 @@ func runScanCommand(args []string) {
 	if *stagedFlag {
 		scanType = "staged"
 		scanTarget = "Git Staging Buffer"
-		stagedFindings, err := git.ScanStaged(engine)
+		stagedFindings, filesCount, linesCount, err := git.ScanStagedWithStats(engine)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[Aegis Error] Failed to scan staged git index: %v\n", err)
 			os.Exit(2)
 		}
 		findings = stagedFindings
-		totalFilesScanned = 1
+		totalFilesScanned = filesCount
+		totalLinesScanned = linesCount
+	} else if *rangeFlag != "" {
+		scanType = "range"
+		scanTarget = *rangeFlag
+		parts := strings.Split(*rangeFlag, "...")
+		if len(parts) != 2 {
+			fmt.Fprintf(os.Stderr, "[Aegis Error] Invalid range format %q. Expected BASE...HEAD\n", *rangeFlag)
+			os.Exit(2)
+		}
+		rangeFindings, filesCount, linesCount, err := git.ScanRangeWithStats(engine, parts[0], parts[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[Aegis Error] Failed to scan range diff: %v\n", err)
+			os.Exit(2)
+		}
+		findings = rangeFindings
+		totalFilesScanned = filesCount
+		totalLinesScanned = linesCount
 	} else if *historyFlag {
 		scanType = "history"
 		scanTarget = "Git Commit DAG History"
@@ -177,12 +199,13 @@ func runScanCommand(args []string) {
 		}
 
 		if !stat.IsDir() {
-			totalFilesScanned = 1
-			fileFindings, err := engine.ScanFile(targetPath)
+			fileFindings, lines, err := engine.ScanFileWithStats(targetPath)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "[Aegis Error] File scan error: %v\n", err)
 				os.Exit(2)
 			}
+			totalFilesScanned = 1
+			totalLinesScanned = lines
 			findings = fileFindings
 		} else {
 			err = filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
@@ -201,10 +224,13 @@ func runScanCommand(args []string) {
 					return nil
 				}
 
-				totalFilesScanned++
-				fileFindings, err := engine.ScanFile(path)
-				if err == nil && len(fileFindings) > 0 {
-					findings = append(findings, fileFindings...)
+				fileFindings, lines, err := engine.ScanFileWithStats(path)
+				if err == nil {
+					totalFilesScanned++
+					totalLinesScanned += lines
+					if len(fileFindings) > 0 {
+						findings = append(findings, fileFindings...)
+					}
 				}
 				return nil
 			})
@@ -278,14 +304,32 @@ func runScanCommand(args []string) {
 	}
 
 	// Deterministic Exit Codes:
-	// 0: Clean / No critical secrets
-	// 1: Critical or High secrets detected
+	// Evaluate failure threshold (PRD Section 5.2)
+	threshold := strings.ToUpper(*failOnFlag)
 	blockingCount := 0
 	for _, f := range findings {
-		if f.Confidence != models.ConfidenceLow && (f.Severity == models.SeverityCritical || f.Severity == models.SeverityHigh) {
+		if f.Confidence == models.ConfidenceLow {
+			continue // Non-blocking false-alarm suppression (PRD Section 4.2)
+		}
+
+		switch threshold {
+		case "LOW":
 			blockingCount++
+		case "MEDIUM":
+			if f.Severity == models.SeverityCritical || f.Severity == models.SeverityHigh || f.Severity == models.SeverityMedium {
+				blockingCount++
+			}
+		case "HIGH":
+			if f.Severity == models.SeverityCritical || f.Severity == models.SeverityHigh {
+				blockingCount++
+			}
+		default: // "CRITICAL"
+			if f.Severity == models.SeverityCritical || f.Severity == models.SeverityHigh {
+				blockingCount++
+			}
 		}
 	}
+
 	if blockingCount > 0 {
 		os.Exit(1)
 	}
