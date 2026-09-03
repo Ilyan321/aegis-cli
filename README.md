@@ -40,17 +40,23 @@ Aegis identifies over 20+ production service credentials and frontier AI API key
 
 Choose any of the three simple methods below:
 
-#### Method 1: Universal One-Line Installer (Linux / macOS / WSL)
+#### Method 1: Linux, macOS & WSL (One-Line Terminal Installer)
 ```bash
 curl -fsSL https://aegis.ilyankhan.tech | bash
 ```
 
-#### Method 2: Via Go (for Go developers)
+#### Method 2: Windows (One-Line PowerShell Installer)
+Open PowerShell (or Windows Terminal) and run:
+```powershell
+irm https://aegis.ilyankhan.tech/install.ps1 | iex
+```
+
+#### Method 3: Via Go (for Go developers across all platforms)
 ```bash
 go install github.com/Ilyan321/aegis-cli/cmd/aegis@latest
 ```
 
-#### Method 3: Build & Install from Source
+#### Method 4: Build & Install from Source
 ```bash
 git clone https://github.com/Ilyan321/aegis-cli.git
 cd aegis-cli
