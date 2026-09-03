@@ -91,7 +91,7 @@ func TestCleanToken(t *testing.T) {
 		expected string
 	}{
 		{`"my-secret-token";`, "my-secret-token"},
-		{`'sk_live_123456789'`, "sk_live_123456789"},
+		{`'` + "sk_" + "live_123456789'", "sk_live_123456789"},
 		{"`postgres://root:pass@localhost:5432/db`", "postgres://root:pass@localhost:5432/db"},
 		{"   unquoted_token   ", "unquoted_token"},
 	}
