@@ -57,26 +57,29 @@ cd aegis-cli
 make install
 ```
 
-### Git Pre-Commit Hook Setup
+### Repository Protection Setup
 
-Install native pre-commit hook protection into your current repository with a single command:
+Initialize protection inside any Git repository with a single command:
 
 ```bash
-# Install pre-commit hook (automatically backs up existing hooks)
-aegis hook install
+# Initialize Aegis: installs pre-commit hook and generates starter .aegisignore
+aegis init
 
-# Remove pre-commit hook (automatically restores previous backup)
-aegis hook uninstall
+# Check repository protection and staged security status
+aegis status
+
+# Remove pre-commit protection
+aegis uninit
 ```
 
 ---
 
-## 📖 CLI Usage & Commands
+## 📖 CLI Usage & Workflows
 
-### 1. Scan Current Directory or Specific Path
+### 1. Scan Current Repository (or Subfolder)
 ```bash
-# Scan working directory
-aegis scan .
+# Scan working directory (defaults to current directory)
+aegis scan
 
 # Scan specific file or subdirectory
 aegis scan src/config/
@@ -85,23 +88,25 @@ aegis scan src/config/
 ### 2. Scan Staged Git Buffer (Pre-Commit Mode)
 Evaluates newly added or modified lines in the Git index before committing:
 ```bash
-aegis scan --staged
+aegis staged
+# With live active verification:
+aegis staged --verify
 ```
 
-### 3. Scan Entire Git Commit DAG History
-Streams objects directly from git revision trees via streaming pipes:
+### 3. Deep Historical Audit
+Audit the entire Git commit DAG history across all past commits:
 ```bash
-aegis scan --history
+aegis audit history
 ```
 
-### 4. Opt-In Live Active Verification
-Ping provider APIs with zero-privilege non-destructive calls:
+### 4. Instant String Inspector
+Test any token or suspicious string directly in your terminal without creating a file:
 ```bash
-aegis scan --staged --verify
+aegis check "ghp_111122223333444455556666777788889999"
 ```
 
 ### 5. Structured CI/CD JSON Output
-Generate machine-readable reports for SARIF converters or CI pipelines:
+Generate machine-readable reports for SARIF converters or CI/CD pipelines:
 ```bash
 # Output JSON to stdout
 aegis scan --format=json
