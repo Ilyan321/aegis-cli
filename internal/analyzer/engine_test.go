@@ -25,6 +25,16 @@ func TestEngineRuleDetections(t *testing.T) {
 	sendgridKey := "S" + "G." + "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	supabaseKey := "sb" + "p_" + "0123456789abcdef0123456789abcdef01234567"
 
+	// New frontier AI and modern tools
+	geminiKey := "AI" + "za" + "SyC1234567890abcdefghijklmnopqrstuv"
+	grokKey := "xa" + "i-" + "1234567890abcdef1234567890abcdef12345678"
+	groqKey := "gs" + "k_" + "1234567890abcdef1234567890abcdef1234567890abcdef1234"
+	pplxKey := "pp" + "lx-" + "1234567890abcdef1234567890abcdef1234567890abcdef"
+	deepseekKey := "sk" + "-" + "0123456789abcdef0123456789abcdef"
+	resendKey := "re" + "_" + "1234567890abcdefghijklmnopqrstuv"
+	linearKey := "lin" + "_api_" + "1234567890abcdef1234567890abcdef12345678"
+	sentryKey := "snt" + "rys_" + "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
 	tests := []struct {
 		name         string
 		line         string
@@ -65,6 +75,62 @@ func TestEngineRuleDetections(t *testing.T) {
 			line:         `ANTHROPIC_API_KEY="` + anthropicKey + `"`,
 			expectedRule: "AEGIS-ANTHROPIC-001",
 			expectedCat:  models.CategoryAnthropic,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Google Gemini AI Key",
+			line:         `gemini_api_key = "` + geminiKey + `"`,
+			expectedRule: "AEGIS-GEMINI-001",
+			expectedCat:  models.CategoryGemini,
+			shouldMatch:  true,
+		},
+		{
+			name:         "xAI Grok Key",
+			line:         `XAI_API_KEY = "` + grokKey + `"`,
+			expectedRule: "AEGIS-GROK-001",
+			expectedCat:  models.CategoryGrok,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Groq Key",
+			line:         `GROQ_API_KEY = "` + groqKey + `"`,
+			expectedRule: "AEGIS-GROQ-001",
+			expectedCat:  models.CategoryGroq,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Perplexity AI Key",
+			line:         `PERPLEXITY_KEY = "` + pplxKey + `"`,
+			expectedRule: "AEGIS-PPLX-001",
+			expectedCat:  models.CategoryPerplexity,
+			shouldMatch:  true,
+		},
+		{
+			name:         "DeepSeek Key",
+			line:         `DEEPSEEK_API_KEY = "` + deepseekKey + `"`,
+			expectedRule: "AEGIS-DEEPSEEK-001",
+			expectedCat:  models.CategoryDeepSeek,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Resend Email Key",
+			line:         `RESEND_KEY = "` + resendKey + `"`,
+			expectedRule: "AEGIS-RESEND-001",
+			expectedCat:  models.CategoryResend,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Linear API Key",
+			line:         `LINEAR_API_KEY = "` + linearKey + `"`,
+			expectedRule: "AEGIS-LINEAR-001",
+			expectedCat:  models.CategoryLinear,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Sentry Auth Token",
+			line:         `SENTRY_AUTH_TOKEN = "` + sentryKey + `"`,
+			expectedRule: "AEGIS-SENTRY-001",
+			expectedCat:  models.CategorySentry,
 			shouldMatch:  true,
 		},
 		{
@@ -168,19 +234,16 @@ func TestEngineRuleDetections(t *testing.T) {
 }
 
 func TestBinaryDetectionWithUTF16Mitigation(t *testing.T) {
-	// Standard binary with null bytes (e.g. ELF or image)
 	elfBinary := []byte{0x7f, 'E', 'L', 'F', 0x02, 0x01, 0x01, 0x00, 0x00, 0x00}
 	if !IsBinary(elfBinary) {
 		t.Errorf("expected standard binary to be identified as binary")
 	}
 
-	// UTF-16 Little Endian text file (contains 0x00 bytes legitimately)
 	utf16LE := []byte{0xFF, 0xFE, 'A', 0x00, 'W', 0x00, 'S', 0x00}
 	if IsBinary(utf16LE) {
 		t.Errorf("UTF-16 Little Endian text with BOM was falsely flagged as binary")
 	}
 
-	// UTF-16 Big Endian text file
 	utf16BE := []byte{0xFE, 0xFF, 0x00, 'A', 0x00, 'W', 0x00, 'S'}
 	if IsBinary(utf16BE) {
 		t.Errorf("UTF-16 Big Endian text with BOM was falsely flagged as binary")
@@ -190,7 +253,6 @@ func TestBinaryDetectionWithUTF16Mitigation(t *testing.T) {
 func TestMinifiedLongLinePrefixScanning(t *testing.T) {
 	engine := NewEngine()
 
-	// Create a 5,000-character line simulating a minified JS bundle
 	padding := strings.Repeat("var a=1;function f(){return 42;}", 150)
 	secret := "sk_" + "live_" + "51A9999999999999999999999999"
 	longLine := padding + `var stripeKey="` + secret + `";` + padding

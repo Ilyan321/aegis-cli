@@ -64,6 +64,9 @@ func NewRegistry() *Registry {
 		NewDigitalOceanVerifier(),
 		NewSendGridVerifier(),
 		NewSupabaseVerifier(),
+		NewGroqVerifier(),
+		NewResendVerifier(),
+		NewGrokVerifier(),
 	}
 
 	return reg

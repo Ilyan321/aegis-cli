@@ -49,6 +49,11 @@ const (
 	CategoryStripe       TokenCategory = "Stripe"
 	CategoryOpenAI       TokenCategory = "OpenAI"
 	CategoryAnthropic    TokenCategory = "Anthropic"
+	CategoryGemini       TokenCategory = "Gemini"
+	CategoryGrok         TokenCategory = "Grok (xAI)"
+	CategoryGroq         TokenCategory = "Groq"
+	CategoryPerplexity   TokenCategory = "Perplexity"
+	CategoryDeepSeek     TokenCategory = "DeepSeek"
 	CategoryHuggingFace  TokenCategory = "HuggingFace"
 	CategoryGCP          TokenCategory = "GCP"
 	CategoryDigitalOcean TokenCategory = "DigitalOcean"
@@ -57,7 +62,10 @@ const (
 	CategoryDiscord      TokenCategory = "Discord"
 	CategoryTwilio       TokenCategory = "Twilio"
 	CategorySendGrid     TokenCategory = "SendGrid"
+	CategoryResend       TokenCategory = "Resend"
 	CategorySupabase     TokenCategory = "Supabase"
+	CategoryLinear       TokenCategory = "Linear"
+	CategorySentry       TokenCategory = "Sentry"
 	CategorySlack        TokenCategory = "Slack"
 	CategoryDatabase     TokenCategory = "Database"
 	CategoryGeneric      TokenCategory = "Generic High-Entropy"
@@ -143,7 +151,6 @@ func MaskSecret(secret string) string {
 	if length <= 4 {
 		return strings.Repeat("*", length)
 	}
-	// Preserve up to 4 leading chars, mask the rest
 	prefix := secret[:4]
 	return prefix + strings.Repeat("*", length-4)
 }

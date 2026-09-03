@@ -132,22 +132,6 @@ func init() {
 			},
 		},
 		{
-			ID:          "AEGIS-OPENAI-001",
-			Description: "OpenAI Secret API Key",
-			Category:    models.CategoryOpenAI,
-			Severity:    models.SeverityCritical,
-			Prefixes:    []string{"sk-"},
-			Pattern:     regexp.MustCompile(`\b(sk-(?:proj-[a-zA-Z0-9_-]{48,128}|admin-[a-zA-Z0-9_-]{48,128}|[a-zA-Z0-9]{48}))\b`),
-			Remediation: models.Remediation{
-				BlastRadius: models.BlastRadius{
-					Scope:          "OpenAI Platform & Model Quotas",
-					Impact:         "Unauthorized LLM queries, quota exhaustion, fine-tuning tampering, and billed expenses.",
-					TargetServices: []string{"OpenAI Completions", "Embeddings", "Fine-Tuning"},
-				},
-				ActionRequired: "Revoke key immediately at platform.openai.com/api-keys.",
-			},
-		},
-		{
 			ID:          "AEGIS-ANTHROPIC-001",
 			Description: "Anthropic Claude API Key",
 			Category:    models.CategoryAnthropic,
@@ -164,6 +148,118 @@ func init() {
 			},
 		},
 		{
+			ID:          "AEGIS-DEEPSEEK-001",
+			Description: "DeepSeek API Key",
+			Category:    models.CategoryDeepSeek,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"sk-"},
+			Pattern:     regexp.MustCompile(`\b(sk-[a-f0-9]{32})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "DeepSeek LLM Platform Access",
+					Impact:         "Unauthorized DeepSeek-V3/R1 model querying, quota consumption, and account balance drainage.",
+					TargetServices: []string{"DeepSeek Chat API", "Inference Platform"},
+				},
+				ActionRequired: "Revoke key immediately in DeepSeek Platform > API Keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-OPENAI-001",
+			Description: "OpenAI Secret API Key",
+			Category:    models.CategoryOpenAI,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"sk-"},
+			Pattern:     regexp.MustCompile(`\b(sk-(?:proj-[a-zA-Z0-9_-]{48,128}|admin-[a-zA-Z0-9_-]{48,128}|[a-zA-Z0-9]{48}))\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "OpenAI Platform & Model Quotas",
+					Impact:         "Unauthorized LLM queries, quota exhaustion, fine-tuning tampering, and billed expenses.",
+					TargetServices: []string{"OpenAI Completions", "Embeddings", "Fine-Tuning"},
+				},
+				ActionRequired: "Revoke key immediately at platform.openai.com/api-keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-GROK-001",
+			Description: "xAI Grok API Key",
+			Category:    models.CategoryGrok,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"xai-"},
+			Pattern:     regexp.MustCompile(`\b(xai-[a-zA-Z0-9]{32,80})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "xAI Grok Platform Access",
+					Impact:         "Unauthorized Grok-2/Grok-Vision API requests and organization billing drain.",
+					TargetServices: []string{"xAI API", "Grok Models"},
+				},
+				ActionRequired: "Revoke key at console.x.ai.",
+			},
+		},
+		{
+			ID:          "AEGIS-GROQ-001",
+			Description: "Groq Fast Inference API Key",
+			Category:    models.CategoryGroq,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"gsk_"},
+			Pattern:     regexp.MustCompile(`\b(gsk_[a-zA-Z0-9]{52})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Groq High-Speed LPU Platform",
+					Impact:         "Compute quota exhaustion, unauthorized high-throughput LLM inference.",
+					TargetServices: []string{"GroqCloud API", "LPU Inference Engine"},
+				},
+				ActionRequired: "Revoke key at console.groq.com/keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-PPLX-001",
+			Description: "Perplexity AI API Key",
+			Category:    models.CategoryPerplexity,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"pplx-"},
+			Pattern:     regexp.MustCompile(`\b(pplx-[a-zA-Z0-9]{48})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Perplexity AI Search & Sonar Models",
+					Impact:         "Unauthorized web-grounded LLM inference, API credit drainage.",
+					TargetServices: []string{"Perplexity API", "Sonar Models"},
+				},
+				ActionRequired: "Rotate key in Perplexity Settings > API.",
+			},
+		},
+		{
+			ID:          "AEGIS-GEMINI-001",
+			Description: "Google Gemini / Google AI Studio API Key",
+			Category:    models.CategoryGemini,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"AIzaSy"},
+			Pattern:     regexp.MustCompile(`(?i)(?:gemini|google_ai|generative_language).*['"](AIzaSy[a-zA-Z0-9_\-]{33})['"]`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Google Gemini Generative AI Platform",
+					Impact:         "Unauthorized Gemini 1.5 Pro / Flash inferences, rate-limit depletion, and Google Cloud billing.",
+					TargetServices: []string{"Google AI Studio", "Gemini APIs", "Vertex AI"},
+				},
+				ActionRequired: "Delete or rotate API key at aistudio.google.com/app/apikey.",
+			},
+		},
+		{
+			ID:          "AEGIS-GCP-001",
+			Description: "Google Cloud Platform (GCP) API Key",
+			Category:    models.CategoryGCP,
+			Severity:    models.SeverityHigh,
+			Prefixes:    []string{"AIzaSy"},
+			Pattern:     regexp.MustCompile(`\b(AIzaSy[a-zA-Z0-9_\-]{33})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Google Cloud Enabled Services",
+					Impact:         "Direct consumption of enabled GCP APIs (Maps, Firebase, Translate, etc.).",
+					TargetServices: []string{"GCP APIs", "Firebase", "Google Maps"},
+				},
+				ActionRequired: "Restrict or delete key in Google Cloud Console > Credentials.",
+			},
+		},
+		{
 			ID:          "AEGIS-HF-001",
 			Description: "Hugging Face User Access Token",
 			Category:    models.CategoryHuggingFace,
@@ -177,22 +273,6 @@ func init() {
 					TargetServices: []string{"Hugging Face Hub", "Inference API"},
 				},
 				ActionRequired: "Revoke token at huggingface.co/settings/tokens.",
-			},
-		},
-		{
-			ID:          "AEGIS-GCP-001",
-			Description: "Google Cloud Platform (GCP) API Key",
-			Category:    models.CategoryGCP,
-			Severity:    models.SeverityHigh,
-			Prefixes:    []string{"AIzaSy"},
-			Pattern:     regexp.MustCompile(`\b(AIzaSy[a-zA-Z0-9_\-]{33})\b`),
-			Remediation: models.Remediation{
-				BlastRadius: models.BlastRadius{
-					Scope:          "Google Cloud Enabled Services",
-					Impact:         "Direct consumption of enabled GCP APIs (Maps, Firebase, Gemini, Translate, etc.).",
-					TargetServices: []string{"GCP APIs", "Firebase", "Google Maps"},
-				},
-				ActionRequired: "Restrict or delete key in Google Cloud Console > Credentials.",
 			},
 		},
 		{
@@ -241,6 +321,54 @@ func init() {
 					TargetServices: []string{"npmjs.com Package Registry"},
 				},
 				ActionRequired: "Revoke token at npmjs.com/settings/tokens and check published package versions.",
+			},
+		},
+		{
+			ID:          "AEGIS-RESEND-001",
+			Description: "Resend Email API Key",
+			Category:    models.CategoryResend,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"re_"},
+			Pattern:     regexp.MustCompile(`\b(re_[a-zA-Z0-9]{32,36})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Resend Email Infrastructure",
+					Impact:         "Unauthorized email dispatch from verified company domains.",
+					TargetServices: []string{"Resend Mail API", "Domain DNS"},
+				},
+				ActionRequired: "Delete and rotate API key at resend.com/api-keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-LINEAR-001",
+			Description: "Linear API Key",
+			Category:    models.CategoryLinear,
+			Severity:    models.SeverityHigh,
+			Prefixes:    []string{"lin_api_"},
+			Pattern:     regexp.MustCompile(`\b(lin_api_[a-zA-Z0-9]{40})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Linear Project Management & Issue Tracker",
+					Impact:         "Read/write project issues, roadmaps, customer bug disclosures.",
+					TargetServices: []string{"Linear GraphQL API"},
+				},
+				ActionRequired: "Revoke key in Linear Settings > API.",
+			},
+		},
+		{
+			ID:          "AEGIS-SENTRY-001",
+			Description: "Sentry Auth Token",
+			Category:    models.CategorySentry,
+			Severity:    models.SeverityHigh,
+			Prefixes:    []string{"sntrys_"},
+			Pattern:     regexp.MustCompile(`\b(sntrys_[a-zA-Z0-9]{64})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Sentry Error Monitoring Platform",
+					Impact:         "Exfiltration of production crash dumps, stack traces, and debug symbols.",
+					TargetServices: []string{"Sentry Organization API", "Releases"},
+				},
+				ActionRequired: "Revoke token at sentry.io/settings/account/api/auth-tokens.",
 			},
 		},
 		{

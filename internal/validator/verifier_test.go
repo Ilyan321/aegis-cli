@@ -101,16 +101,51 @@ func TestHuggingFaceAndGitLabVerifier(t *testing.T) {
 	glVerifier := &GitLabVerifier{endpoint: mockServer.URL}
 	client := mockServer.Client()
 
-	// Hugging Face
 	hfRes, err := hfVerifier.Verify(context.Background(), client, "hf_valid")
 	if err != nil || hfRes.Status != models.StatusActive {
 		t.Errorf("expected HF active status, got: %+v", hfRes)
 	}
 
-	// GitLab
 	glRes, err := glVerifier.Verify(context.Background(), client, "glpat-valid")
 	if err != nil || glRes.Status != models.StatusActive {
 		t.Errorf("expected GitLab active status, got: %+v", glRes)
+	}
+}
+
+func TestGroqAndGrokAndResendVerifiers(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if strings.Contains(auth, "valid") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data": []}`))
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error": "invalid_api_key"}`))
+		}
+	}))
+	defer mockServer.Close()
+
+	groq := &GroqVerifier{endpoint: mockServer.URL}
+	grok := &GrokVerifier{endpoint: mockServer.URL}
+	resend := &ResendVerifier{endpoint: mockServer.URL}
+	client := mockServer.Client()
+
+	// Groq
+	res, err := groq.Verify(context.Background(), client, "gsk_valid")
+	if err != nil || res.Status != models.StatusActive {
+		t.Errorf("expected Groq active, got: %+v", res)
+	}
+
+	// Grok
+	res, err = grok.Verify(context.Background(), client, "xai-valid")
+	if err != nil || res.Status != models.StatusActive {
+		t.Errorf("expected Grok active, got: %+v", res)
+	}
+
+	// Resend
+	res, err = resend.Verify(context.Background(), client, "re_valid")
+	if err != nil || res.Status != models.StatusActive {
+		t.Errorf("expected Resend active, got: %+v", res)
 	}
 }
 
