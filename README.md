@@ -38,25 +38,39 @@ Aegis identifies over 20+ production service credentials and frontier AI API key
 
 ### Installation
 
-Choose any of the three simple methods below:
+Choose the installation method that fits your environment:
 
-#### Method 1: Linux, macOS & WSL (One-Line Terminal Installer)
+#### 1. Linux, macOS & WSL (One-Line Terminal Installer)
 ```bash
 curl -fsSL https://aegis.ilyankhan.tech | bash
 ```
 
-#### Method 2: Windows (One-Line PowerShell Installer)
-Open PowerShell (or Windows Terminal) and run:
+#### 2. Windows (Native PowerShell Installer)
+Open PowerShell or Windows Terminal and run:
 ```powershell
 irm https://aegis.ilyankhan.tech/install.ps1 | iex
 ```
 
-#### Method 3: Via Go (for Go developers across all platforms)
+#### 3. Windows (Git Bash)
+If you use Git for Windows / Git Bash:
+```bash
+curl -fsSL https://aegis.ilyankhan.tech | bash
+```
+
+#### 4. Precompiled Binaries (Direct Download)
+Download ready-to-run statically linked binaries directly from [GitHub Releases](https://github.com/Ilyan321/aegis-cli/releases):
+* **Linux (x64 / AMD64):** [`aegis_linux_amd64.tar.gz`](https://github.com/Ilyan321/aegis-cli/releases)
+* **Linux (ARM64):** [`aegis_linux_arm64.tar.gz`](https://github.com/Ilyan321/aegis-cli/releases)
+* **macOS (Apple Silicon M1/M2/M3/M4):** [`aegis_darwin_arm64.tar.gz`](https://github.com/Ilyan321/aegis-cli/releases)
+* **macOS (Intel):** [`aegis_darwin_amd64.tar.gz`](https://github.com/Ilyan321/aegis-cli/releases)
+* **Windows (x64):** [`aegis_windows_amd64.zip`](https://github.com/Ilyan321/aegis-cli/releases)
+
+#### 5. Via Go (For Go Developers)
 ```bash
 go install github.com/Ilyan321/aegis-cli/cmd/aegis@latest
 ```
 
-#### Method 4: Build & Install from Source
+#### 6. Build from Source
 ```bash
 git clone https://github.com/Ilyan321/aegis-cli.git
 cd aegis-cli
