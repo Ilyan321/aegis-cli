@@ -1,0 +1,54 @@
+# Version control
+.git/
+.svn/
+.hg/
+
+# Dependencies and vendors
+node_modules/
+vendor/
+.venv/
+env/
+__pycache__/
+
+# Package manager lockfiles (high-entropy hashes by design)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+Cargo.lock
+poetry.lock
+composer.lock
+Gemfile.lock
+go.sum
+
+# Build outputs and binaries
+bin/
+dist/
+build/
+target/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Media and binary assets
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.svg
+*.pdf
+*.zip
+*.tar.gz
+*.tgz
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# OS files
+.DS_Store
+Thumbs.db
