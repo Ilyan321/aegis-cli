@@ -115,6 +115,19 @@ aegis scan --format=json
 aegis scan --format=json --output=aegis-report.json
 ```
 
+### 6. Shell Tab Autocompletion
+Generate tab completion for your preferred shell:
+```bash
+# Bash (add to ~/.bashrc)
+source <(aegis completion bash)
+
+# Zsh (add to ~/.zshrc)
+source <(aegis completion zsh)
+
+# Fish (add to ~/.config/fish/completions/aegis.fish)
+aegis completion fish > ~/.config/fish/completions/aegis.fish
+```
+
 ---
 
 ## 🚦 Deterministic Exit Codes

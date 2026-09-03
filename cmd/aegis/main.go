@@ -70,6 +70,9 @@ func main() {
 	case "hook":
 		runHookCommand(os.Args[2:])
 
+	case "completion":
+		runCompletionCommand(os.Args[2:])
+
 	case "scan":
 		runScanCommand(os.Args[2:])
 
@@ -99,6 +102,7 @@ func printUsage() {
 	fmt.Println("  aegis audit history           Deep-audit full git commit DAG history for past leaks")
 	fmt.Println("  aegis check \"<string>\"        Instantly inspect a secret string or token from the terminal")
 	fmt.Println("  aegis status                  Show repository protection status and staged security state")
+	fmt.Println("  aegis completion [shell]      Generate shell tab autocompletion (bash, zsh, fish)")
 	fmt.Println("  aegis uninit                  Remove Aegis pre-commit protection from current repository")
 	fmt.Println("  aegis version                 Print version information")
 	fmt.Println("\nAdvanced Flags for 'scan' / 'staged' / 'audit':")
@@ -560,4 +564,121 @@ type ioDiscard struct{}
 
 func (ioDiscard) Write(p []byte) (n int, err error) {
 	return len(p), nil
+}
+
+func runCompletionCommand(args []string) {
+	shell := "bash"
+	if len(args) > 0 {
+		shell = strings.ToLower(args[0])
+	}
+
+	switch shell {
+	case "bash":
+		fmt.Print(`# bash completion for aegis
+_aegis_completions() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    commands="init scan staged audit check status uninit version completion hook"
+    flags="--staged --history --range= --verify --format= --output= --fail-on= --no-color -v --help"
+
+    if [[ ${COMP_CWORD} -eq 1 ]] ; then
+        COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
+        return 0
+    fi
+
+    case "${prev}" in
+        audit)
+            COMPREPLY=( $(compgen -W "history" -- ${cur}) )
+            return 0
+            ;;
+        hook)
+            COMPREPLY=( $(compgen -W "install uninstall" -- ${cur}) )
+            return 0
+            ;;
+        completion)
+            COMPREPLY=( $(compgen -W "bash zsh fish" -- ${cur}) )
+            return 0
+            ;;
+        --format)
+            COMPREPLY=( $(compgen -W "console json" -- ${cur}) )
+            return 0
+            ;;
+        --fail-on)
+            COMPREPLY=( $(compgen -W "critical high medium low" -- ${cur}) )
+            return 0
+            ;;
+        *)
+            COMPREPLY=( $(compgen -W "${flags}" -- ${cur}) )
+            return 0
+            ;;
+    esac
+}
+complete -F _aegis_completions aegis
+`)
+	case "zsh":
+		fmt.Print(`#compdef aegis
+
+_aegis() {
+    local -a commands
+    commands=(
+        'init:Initialize Aegis pre-commit hook and .aegisignore'
+        'scan:Scan workspace or directory for secret leaks'
+        'staged:Scan staged changes in git index'
+        'audit:Deep-audit full git commit DAG history'
+        'check:Inspect a raw secret string or token'
+        'status:Show repository protection status'
+        'uninit:Remove Aegis pre-commit hook'
+        'version:Print version information'
+        'completion:Generate shell autocompletion script'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'aegis command' commands
+    else
+        case "$words[2]" in
+            audit)
+                _values 'audit target' 'history[Deep-audit git commit DAG history]'
+                ;;
+            hook)
+                _values 'hook action' 'install[Install pre-commit hook]' 'uninstall[Remove pre-commit hook]'
+                ;;
+            completion)
+                _values 'shell' 'bash' 'zsh' 'fish'
+                ;;
+            *)
+                _arguments \
+                    '--staged[Scan git staging buffer]' \
+                    '--history[Scan git DAG commit history]' \
+                    '--verify[Actively verify candidate tokens]' \
+                    '--format=[Output report format]:format:(console json)' \
+                    '--fail-on=[Failure threshold]:severity:(critical high medium low)' \
+                    '--output=[Write report to file]:file:_files' \
+                    '--no-color[Disable ANSI colors]'
+                ;;
+        esac
+    fi
+}
+
+_aegis "$@"
+`)
+	case "fish":
+		fmt.Print(`# fish completion for aegis
+complete -c aegis -f -n '__fish_use_subcommand' -a init -d 'Initialize Aegis pre-commit hook'
+complete -c aegis -f -n '__fish_use_subcommand' -a scan -d 'Scan directory or repository'
+complete -c aegis -f -n '__fish_use_subcommand' -a staged -d 'Scan staged git changes'
+complete -c aegis -f -n '__fish_use_subcommand' -a audit -d 'Audit git commit DAG history'
+complete -c aegis -f -n '__fish_use_subcommand' -a check -d 'Inspect a candidate token string'
+complete -c aegis -f -n '__fish_use_subcommand' -a status -d 'Show repository security status'
+complete -c aegis -f -n '__fish_use_subcommand' -a uninit -d 'Remove pre-commit hook'
+complete -c aegis -f -n '__fish_use_subcommand' -a version -d 'Print version information'
+complete -c aegis -f -n '__fish_use_subcommand' -a completion -d 'Generate shell completion script'
+`)
+	default:
+		fmt.Fprintf(os.Stderr, "Unsupported shell '%s'. Supported shells: bash, zsh, fish\n", shell)
+		os.Exit(2)
+	}
+	os.Exit(0)
 }

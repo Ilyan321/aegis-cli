@@ -71,3 +71,17 @@ func TestCLIUnknownCommand(t *testing.T) {
 		t.Errorf("expected 'is not an aegis command', got: %s", string(out))
 	}
 }
+
+func TestCLICompletion(t *testing.T) {
+	shells := []string{"bash", "zsh", "fish"}
+	for _, shell := range shells {
+		cmd := exec.Command("go", "run", "main.go", "completion", shell)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("completion %s failed: %v, output: %s", shell, err, string(out))
+		}
+		if len(out) == 0 {
+			t.Errorf("expected completion script for %s, got empty output", shell)
+		}
+	}
+}
