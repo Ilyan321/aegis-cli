@@ -15,10 +15,10 @@ const (
 # Deterministic local-first secret scanning
 
 if command -v aegis >/dev/null 2>&1; then
-    aegis scan --staged
+    aegis staged
     EXIT_CODE=$?
 elif [ -f "./bin/aegis" ]; then
-    ./bin/aegis scan --staged
+    ./bin/aegis staged
     EXIT_CODE=$?
 else
     echo "[Aegis] Warning: aegis binary not found in PATH or ./bin/aegis. Skipping pre-commit secret scan."
@@ -28,7 +28,7 @@ fi
 if [ $EXIT_CODE -ne 0 ]; then
     echo ""
     echo "[Aegis] Commit rejected: Uncommitted secrets detected in staging buffer."
-    echo "[Aegis] Run 'aegis scan --staged' for remediation instructions or add '// aegis:ignore' for false-positives."
+    echo "[Aegis] Run 'aegis staged' for remediation instructions or add '// aegis:ignore' for false-positives."
     exit 1
 fi
 exit 0

@@ -74,13 +74,19 @@ func main() {
 		runScanCommand(os.Args[2:])
 
 	default:
-		// Check if user directly ran `aegis [path]` or `aegis --flags`
+		// Check if user passed flags directly: aegis --flags
 		if strings.HasPrefix(command, "-") {
 			runScanCommand(os.Args[1:])
 			return
 		}
-		// Positional path passed directly: aegis [path]
-		runScanCommand(os.Args[1:])
+		// If command matches an existing file or folder, scan it directly
+		if _, err := os.Stat(command); err == nil {
+			runScanCommand(os.Args[1:])
+			return
+		}
+		// Otherwise report unrecognized command cleanly (Git UX pattern)
+		fmt.Fprintf(os.Stderr, "aegis: '%s' is not an aegis command. Run 'aegis --help' to see available commands.\n", command)
+		os.Exit(2)
 	}
 }
 
@@ -112,12 +118,12 @@ func runInitCommand() {
 
 	fmt.Printf("🛡️  Initializing Aegis in %s...\n", cwd)
 
-	hooksDir, err := git.GetGitHooksDir()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "⚠️  Warning: %v (Pre-commit hook not installed)\n", err)
+	hooksDir, hookErr := git.GetGitHooksDir()
+	if hookErr != nil {
+		fmt.Fprintf(os.Stderr, "  ⚠️  Not a git repository (run 'git init' first to enable automatic pre-commit protection)\n")
 	} else {
 		if err := git.InstallHook(hooksDir); err != nil {
-			fmt.Fprintf(os.Stderr, "❌ Failed to install git pre-commit hook: %v\n", err)
+			fmt.Fprintf(os.Stderr, "  ❌ Failed to install git pre-commit hook: %v\n", err)
 			os.Exit(2)
 		}
 		fmt.Println("  ✅ Installed git pre-commit hook (.git/hooks/pre-commit)")
@@ -150,7 +156,11 @@ bin/
 		fmt.Println("  ℹ️  Existing .aegisignore preserved")
 	}
 
-	fmt.Println("\n🎉 Repository is protected! Aegis will automatically scan commits in <10ms.")
+	if hookErr == nil {
+		fmt.Println("\n🎉 Repository is protected! Aegis will automatically scan commits in <10ms.")
+	} else {
+		fmt.Println("\nℹ️  Starter configuration ready. Run 'git init' followed by 'aegis init' to activate pre-commit scanning.")
+	}
 	os.Exit(0)
 }
 
@@ -241,6 +251,7 @@ func runCheckCommand(args []string) {
 
 	if verify {
 		registry := validator.NewRegistry()
+		defer registry.Close()
 		findings = registry.VerifyAll(context.Background(), findings)
 	}
 
@@ -262,7 +273,6 @@ func runCheckCommand(args []string) {
 }
 
 func runAuditCommand(args []string) {
-	// If user ran `aegis audit history` or `aegis audit`
 	var subArgs []string
 	isHistory := false
 
@@ -340,6 +350,16 @@ func runScanCommand(args []string) {
 		targetPath = fs.Arg(0)
 	}
 
+	opts := &config.ScanOptions{
+		TargetDirectory: targetPath,
+		ScanStaged:      *stagedFlag,
+		ScanHistory:     *historyFlag,
+		Verify:          *verifyFlag,
+		Format:          *formatFlag,
+		OutputFile:      *outputFlag,
+		FailOnSeverity:  *failOnFlag,
+	}
+
 	startTime := time.Now()
 	engine := analyzer.NewEngine()
 
@@ -349,7 +369,7 @@ func runScanCommand(args []string) {
 	var scanType string
 	var scanTarget string
 
-	if *stagedFlag {
+	if opts.ScanStaged {
 		scanType = "staged"
 		scanTarget = "Git Staging Buffer"
 		stagedFindings, filesCount, linesCount, err := git.ScanStagedWithStats(engine)
@@ -376,7 +396,7 @@ func runScanCommand(args []string) {
 		findings = rangeFindings
 		totalFilesScanned = filesCount
 		totalLinesScanned = linesCount
-	} else if *historyFlag {
+	} else if opts.ScanHistory {
 		scanType = "history"
 		scanTarget = "Git Commit DAG History"
 		historyFindings, err := git.ScanHistory(engine)
@@ -388,17 +408,17 @@ func runScanCommand(args []string) {
 		totalFilesScanned = len(findings)
 	} else {
 		scanType = "path"
-		scanTarget = targetPath
-		matcher := config.LoadIgnoreMatcher(targetPath)
+		scanTarget = opts.TargetDirectory
+		matcher := config.LoadIgnoreMatcher(opts.TargetDirectory)
 
-		stat, err := os.Stat(targetPath)
+		stat, err := os.Stat(opts.TargetDirectory)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[Aegis Error] Target path error: %v\n", err)
 			os.Exit(2)
 		}
 
 		if !stat.IsDir() {
-			fileFindings, lines, err := engine.ScanFileWithStats(targetPath)
+			fileFindings, lines, err := engine.ScanFileWithStats(opts.TargetDirectory)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "[Aegis Error] File scan error: %v\n", err)
 				os.Exit(2)
@@ -407,13 +427,13 @@ func runScanCommand(args []string) {
 			totalLinesScanned = lines
 			findings = fileFindings
 		} else {
-			err = filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
+			err = filepath.Walk(opts.TargetDirectory, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
-					return nil // Skip unreadable paths
+					return nil
 				}
 
 				if info.IsDir() {
-					if matcher.ShouldIgnore(path) && path != targetPath {
+					if matcher.ShouldIgnore(path) && path != opts.TargetDirectory {
 						return filepath.SkipDir
 					}
 					return nil
@@ -441,8 +461,9 @@ func runScanCommand(args []string) {
 	}
 
 	// Active Verification (Opt-In)
-	if *verifyFlag && len(findings) > 0 {
+	if opts.Verify && len(findings) > 0 {
 		registry := validator.NewRegistry()
+		defer registry.Close()
 		findings = registry.VerifyAll(context.Background(), findings)
 	}
 
@@ -490,20 +511,20 @@ func runScanCommand(args []string) {
 	}
 
 	// Render Report
-	if strings.ToLower(*formatFlag) == "json" {
-		if err := reporter.WriteJSONReport(report, *outputFlag, os.Stdout); err != nil {
+	if strings.ToLower(opts.Format) == "json" {
+		if err := reporter.WriteJSONReport(report, opts.OutputFile, os.Stdout); err != nil {
 			fmt.Fprintf(os.Stderr, "[Aegis Error] Failed to output JSON: %v\n", err)
 			os.Exit(2)
 		}
 	} else {
 		reporter.PrintConsoleReport(os.Stdout, report, *noColorFlag)
-		if *outputFlag != "" {
-			_ = reporter.WriteJSONReport(report, *outputFlag, ioDiscard{})
+		if opts.OutputFile != "" {
+			_ = reporter.WriteJSONReport(report, opts.OutputFile, ioDiscard{})
 		}
 	}
 
 	// Deterministic Exit Codes
-	threshold := strings.ToUpper(*failOnFlag)
+	threshold := strings.ToUpper(opts.FailOnSeverity)
 	blockingCount := 0
 	for _, f := range findings {
 		if f.Confidence == models.ConfidenceLow {

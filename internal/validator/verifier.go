@@ -27,6 +27,7 @@ type ProviderVerifier interface {
 type Registry struct {
 	client    *http.Client
 	verifiers []ProviderVerifier
+	ticker    *time.Ticker
 	limiter   <-chan time.Time
 	mu        sync.Mutex
 }
@@ -49,6 +50,7 @@ func NewRegistry() *Registry {
 
 	reg := &Registry{
 		client:  client,
+		ticker:  ticker,
 		limiter: ticker.C,
 	}
 
@@ -160,4 +162,11 @@ func (r *Registry) VerifyAll(ctx context.Context, findings []models.Finding) []m
 func IsValidTokenFormat(token string, prefix string, minLen int) bool {
 	token = strings.TrimSpace(token)
 	return strings.HasPrefix(token, prefix) && len(token) >= minLen
+}
+
+// Close gracefully terminates the registry rate-limiting ticker.
+func (r *Registry) Close() {
+	if r.ticker != nil {
+		r.ticker.Stop()
+	}
 }

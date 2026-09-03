@@ -60,3 +60,14 @@ func TestCLIScanJSON(t *testing.T) {
 		t.Errorf("expected valid JSON report, got: %s", string(out))
 	}
 }
+
+func TestCLIUnknownCommand(t *testing.T) {
+	cmd := exec.Command("go", "run", "main.go", "statsu")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected error on unknown command, but got success: %s", string(out))
+	}
+	if !strings.Contains(string(out), "is not an aegis command") {
+		t.Errorf("expected 'is not an aegis command', got: %s", string(out))
+	}
+}
