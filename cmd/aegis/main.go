@@ -120,17 +120,17 @@ func runInitCommand() {
 		cwd = "."
 	}
 
-	fmt.Printf("🛡️  Initializing Aegis in %s...\n", cwd)
+	fmt.Printf("[Aegis] Initializing in %s...\n", cwd)
 
 	hooksDir, hookErr := git.GetGitHooksDir()
 	if hookErr != nil {
-		fmt.Fprintf(os.Stderr, "  ⚠️  Not a git repository (run 'git init' first to enable automatic pre-commit protection)\n")
+		fmt.Fprintf(os.Stderr, "  [WARN] Not a git repository (run 'git init' first to enable pre-commit protection)\n")
 	} else {
 		if err := git.InstallHook(hooksDir); err != nil {
-			fmt.Fprintf(os.Stderr, "  ❌ Failed to install git pre-commit hook: %v\n", err)
+			fmt.Fprintf(os.Stderr, "  [ERROR] Failed to install git pre-commit hook: %v\n", err)
 			os.Exit(2)
 		}
-		fmt.Println("  ✅ Installed git pre-commit hook (.git/hooks/pre-commit)")
+		fmt.Println("  [OK] Installed git pre-commit hook (.git/hooks/pre-commit)")
 	}
 
 	// Create starter .aegisignore if not present
@@ -154,16 +154,16 @@ bin/
 *.zip
 `
 		if err := os.WriteFile(ignoreFile, []byte(starterIgnore), 0644); err == nil {
-			fmt.Println("  ✅ Created starter .aegisignore file")
+			fmt.Println("  [OK] Created starter .aegisignore file")
 		}
 	} else {
-		fmt.Println("  ℹ️  Existing .aegisignore preserved")
+		fmt.Println("  [INFO] Existing .aegisignore preserved")
 	}
 
 	if hookErr == nil {
-		fmt.Println("\n🎉 Repository is protected! Aegis will automatically scan commits in <10ms.")
+		fmt.Println("\n[Aegis] Repository protection enabled. Pre-commit hook active.")
 	} else {
-		fmt.Println("\nℹ️  Starter configuration ready. Run 'git init' followed by 'aegis init' to activate pre-commit scanning.")
+		fmt.Println("\n[Aegis] Starter configuration ready. Run 'git init' followed by 'aegis init' to activate pre-commit scanning.")
 	}
 	os.Exit(0)
 }
@@ -171,21 +171,21 @@ bin/
 func runUninitCommand() {
 	hooksDir, err := git.GetGitHooksDir()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[ERROR] %v\n", err)
 		os.Exit(2)
 	}
 
 	if err := git.UninstallHook(hooksDir); err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error removing pre-commit hook: %v\n", err)
+		fmt.Fprintf(os.Stderr, "[ERROR] Failed to remove pre-commit hook: %v\n", err)
 		os.Exit(2)
 	}
 
-	fmt.Println("✅ Aegis pre-commit hook uninstalled successfully.")
+	fmt.Println("[Aegis] Pre-commit hook uninstalled successfully.")
 	os.Exit(0)
 }
 
 func runStatusCommand() {
-	fmt.Println("🛡️  Aegis Repository Status")
+	fmt.Println("[Aegis] Repository Status")
 	fmt.Println("----------------------------------------")
 
 	// Hook status
@@ -194,19 +194,19 @@ func runStatusCommand() {
 		hookPath := filepath.Join(hooksDir, "pre-commit")
 		content, readErr := os.ReadFile(hookPath)
 		if readErr == nil && strings.Contains(string(content), git.AegisHookMarker) {
-			fmt.Println("  Git Pre-Commit Hook:  ✅ Active (.git/hooks/pre-commit)")
+			fmt.Println("  Git Pre-Commit Hook:  Active (.git/hooks/pre-commit)")
 		} else {
-			fmt.Println("  Git Pre-Commit Hook:  ⚠️  Not installed (run 'aegis init' to activate)")
+			fmt.Println("  Git Pre-Commit Hook:  Not installed (run 'aegis init' to activate)")
 		}
 	} else {
-		fmt.Println("  Git Repository:       ⚠️  Not inside a git repository")
+		fmt.Println("  Git Repository:       Not inside a git repository")
 	}
 
 	// Ignore file status
 	if _, err := os.Stat(".aegisignore"); err == nil {
-		fmt.Println("  Ignore Rules:         ✅ .aegisignore configured")
+		fmt.Println("  Ignore Rules:         Configured (.aegisignore)")
 	} else {
-		fmt.Println("  Ignore Rules:         ℹ️  Using standard defaults (.aegisignore missing)")
+		fmt.Println("  Ignore Rules:         Using standard defaults (.aegisignore missing)")
 	}
 
 	// Quick staged buffer inspection
@@ -214,9 +214,9 @@ func runStatusCommand() {
 	stagedFindings, _, _, err := git.ScanStagedWithStats(engine)
 	if err == nil {
 		if len(stagedFindings) == 0 {
-			fmt.Println("  Staged Git Buffer:    ✅ Clean (0 secrets staged)")
+			fmt.Println("  Staged Git Buffer:    Clean (0 secrets staged)")
 		} else {
-			fmt.Printf("  Staged Git Buffer:    🚨 %d secret(s) detected! (run 'aegis staged' for details)\n", len(stagedFindings))
+			fmt.Printf("  Staged Git Buffer:    LEAK DETECTED (%d secret(s) found! Run 'aegis staged' for details)\n", len(stagedFindings))
 		}
 	}
 
@@ -249,7 +249,7 @@ func runCheckCommand(args []string) {
 	findings := engine.ScanLine("terminal-input", 1, tokenInput)
 
 	if len(findings) == 0 {
-		fmt.Println("\n✅ No secret pattern or high-entropy credential detected in input.")
+		fmt.Println("\n[OK] No secret pattern or high-entropy credential detected in input.")
 		os.Exit(0)
 	}
 
@@ -343,7 +343,7 @@ func runHookCommand(args []string) {
 			fmt.Fprintf(os.Stderr, "[Aegis Error] Failed to install hook: %v\n", err)
 			os.Exit(2)
 		}
-		fmt.Printf("✅ Pre-commit hook installed successfully in %s\n", hooksDir)
+		fmt.Printf("[OK] Pre-commit hook installed successfully in %s\n", hooksDir)
 		os.Exit(0)
 
 	case "uninstall":
@@ -351,7 +351,7 @@ func runHookCommand(args []string) {
 			fmt.Fprintf(os.Stderr, "[Aegis Error] Failed to uninstall hook: %v\n", err)
 			os.Exit(2)
 		}
-		fmt.Println("✅ Pre-commit hook removed successfully.")
+		fmt.Println("[OK] Pre-commit hook removed successfully.")
 		os.Exit(0)
 
 	default:

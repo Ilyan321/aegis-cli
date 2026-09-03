@@ -39,17 +39,17 @@ if [ ! -w "$INSTALL_DIR" ]; then
     mkdir -p "$INSTALL_DIR"
 fi
 
-echo "🛡️ Installing Aegis CLI..."
+echo "Installing Aegis CLI..."
 
 # If Go is installed, prefer building directly via go install
 if command -v go >/dev/null 2>&1; then
-    echo "📦 Go toolchain detected. Installing via go install..."
+    echo "Go toolchain detected. Installing via go install..."
     go install "github.com/${REPO}/cmd/aegis@latest"
     GOPATH_BIN="$(go env GOPATH)/bin"
     if [ -f "${GOPATH_BIN}/${BINARY_NAME}" ]; then
         cp "${GOPATH_BIN}/${BINARY_NAME}" "$INSTALL_DIR/${BINARY_NAME}" 2>/dev/null || true
     fi
-    echo "✅ Aegis installed successfully to $INSTALL_DIR/${BINARY_NAME}"
+    echo "Aegis installed successfully to $INSTALL_DIR/${BINARY_NAME}"
     echo ""
     "$INSTALL_DIR/${BINARY_NAME}" version 2>/dev/null || "${GOPATH_BIN}/${BINARY_NAME}" version
     echo "Run 'aegis --help' to get started."
@@ -63,7 +63,7 @@ else
     RELEASE_URL="https://github.com/${REPO}/releases/latest/download/aegis_${OS}_${ARCH}.tar.gz"
 fi
 
-echo "⬇️ Downloading ${BINARY_NAME} for ${OS}/${ARCH}..."
+echo "Downloading ${BINARY_NAME} for ${OS}/${ARCH}..."
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -73,9 +73,9 @@ if [ "$OS" = "windows" ]; then
         unzip -q "$TMP_DIR/aegis.zip" -d "$TMP_DIR"
         chmod +x "$TMP_DIR"/*/"$BINARY_NAME" 2>/dev/null || chmod +x "$TMP_DIR/$BINARY_NAME"
         cp "$TMP_DIR"/*/"$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || cp "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-        echo "✅ Aegis installed successfully to $INSTALL_DIR/$BINARY_NAME"
+        echo "Aegis installed successfully to $INSTALL_DIR/$BINARY_NAME"
     else
-        echo "⚠️ Precompiled release binary not found yet. Please install Go (https://go.dev) or build from source."
+        echo "Precompiled release binary not found yet. Please install Go (https://go.dev) or build from source."
         exit 1
     fi
 else
@@ -83,9 +83,9 @@ else
         tar -xzf "$TMP_DIR/aegis.tar.gz" -C "$TMP_DIR"
         chmod +x "$TMP_DIR"/*/"$BINARY_NAME" 2>/dev/null || chmod +x "$TMP_DIR/$BINARY_NAME"
         cp "$TMP_DIR"/*/"$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME" 2>/dev/null || cp "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/$BINARY_NAME"
-        echo "✅ Aegis installed successfully to $INSTALL_DIR/$BINARY_NAME"
+        echo "Aegis installed successfully to $INSTALL_DIR/$BINARY_NAME"
     else
-        echo "⚠️ Precompiled release binary not found yet. Please install Go (https://go.dev) or build from source."
+        echo "Precompiled release binary not found yet. Please install Go (https://go.dev) or build from source."
         exit 1
     fi
 fi

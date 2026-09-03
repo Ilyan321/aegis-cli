@@ -42,7 +42,7 @@ func PrintConsoleReport(w io.Writer, report *models.ScanReport, noColor bool) {
 		return
 	}
 
-	fmt.Fprintf(w, "\n%s%s🚨 [AEGIS] DETECTED %d SECRET LEAK(S)%s\n", cRed, cBold, len(report.Findings), cReset)
+	fmt.Fprintf(w, "\n%s%s[AEGIS] DETECTED %d SECRET LEAK(S)%s\n", cRed, cBold, len(report.Findings), cReset)
 	fmt.Fprintf(w, "%s----------------------------------------------------------------------%s\n", cDim, cReset)
 
 	for i, f := range report.Findings {

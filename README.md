@@ -10,7 +10,7 @@
 
 ---
 
-## ⚡ Core Tenets & Performance
+## Core Tenets & Performance
 
 1. **Zero Latency Tax**: Pre-commit hook evaluation terminates in **<10 ms** on staged diffs (benchmarked at ~0.048 ms per line).
 2. **Deterministic Reproducibility**: Computes deterministic SHA-256 finding and report hashes for byte-for-byte reproducibility across local machines and CI.
@@ -20,21 +20,21 @@
 
 ---
 
-## 🛡️ Supported Providers & Signatures
+## Supported Providers & Signatures
 
 Aegis identifies over 20+ production service credentials and frontier AI API keys:
 
 | Category | Provider / Pattern | Verified Endpoints |
 | :--- | :--- | :--- |
-| **Frontier AI** | OpenAI, Anthropic Claude, Google Gemini / AI Studio, xAI Grok, DeepSeek, Perplexity AI, Groq LPU | ✅ Live active ping |
-| **Cloud & DevOps** | AWS (IAM / Secret Keys), GCP, DigitalOcean, GitLab, GitHub (Classic & Fine-Grained), NPM | ✅ Live active ping |
-| **Messaging & Mail** | SendGrid, Resend, Twilio, Discord Bot Tokens, Slack Webhook / Bot | ✅ Live active ping |
-| **Database & Auth** | Supabase, PostgreSQL, MySQL, MongoDB, Redis Connection URIs | ✅ Format validation |
-| **Cryptographic** | RSA, EC, DSA, OpenSSH Private Keys, Generic High-Entropy Assignments | ✅ Dual-alphabet entropy |
+| **Frontier AI** | OpenAI, Anthropic Claude, Google Gemini / AI Studio, xAI Grok, DeepSeek, Perplexity AI, Groq LPU | Live active ping |
+| **Cloud & DevOps** | AWS (IAM / Secret Keys), GCP, DigitalOcean, GitLab, GitHub (Classic & Fine-Grained), NPM | Live active ping |
+| **Messaging & Mail** | SendGrid, Resend, Twilio, Discord Bot Tokens, Slack Webhook / Bot | Live active ping |
+| **Database & Auth** | Supabase, PostgreSQL, MySQL, MongoDB, Redis Connection URIs | Format validation |
+| **Cryptographic** | RSA, EC, DSA, OpenSSH Private Keys, Generic High-Entropy Assignments | Dual-alphabet entropy |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -94,7 +94,7 @@ aegis uninit
 
 ---
 
-## 📖 CLI Usage & Workflows
+## CLI Usage & Workflows
 
 ### 1. Scan Current Repository (or Subfolder)
 ```bash
@@ -150,7 +150,7 @@ aegis completion fish > ~/.config/fish/completions/aegis.fish
 
 ---
 
-## 🚦 Deterministic Exit Codes
+## Deterministic Exit Codes
 
 Aegis follows strict POSIX exit code conventions designed for zero false-alarm pipeline breaks:
 
@@ -162,7 +162,7 @@ Aegis follows strict POSIX exit code conventions designed for zero false-alarm p
 
 ---
 
-## 🧪 Benchmark & Verification Suite
+## Benchmark & Verification Suite
 
 Aegis includes an extensive automated test suite with race condition detection and micro-benchmarks:
 
@@ -185,7 +185,7 @@ make lint
 
 ---
 
-## ⚙️ Configuration (`.aegisignore`)
+## Configuration (`.aegisignore`)
 
 Aegis respects `.aegisignore` files at repository root. You can also suppress specific false positives inline:
 
@@ -196,6 +196,6 @@ const apiKey = "AKIAIOSFODNN7EXAMPLE" // aegis:ignore
 
 ---
 
-## 📜 License
+## License
 
 Distributed under the MIT License.
