@@ -46,7 +46,13 @@ if command -v go >/dev/null 2>&1; then
     echo "📦 Go toolchain detected. Installing via go install..."
     go install "github.com/${REPO}/cmd/aegis@latest"
     GOPATH_BIN="$(go env GOPATH)/bin"
-    echo "✅ Aegis installed to ${GOPATH_BIN}/${BINARY_NAME}"
+    if [ -f "${GOPATH_BIN}/${BINARY_NAME}" ]; then
+        cp "${GOPATH_BIN}/${BINARY_NAME}" "$INSTALL_DIR/${BINARY_NAME}" 2>/dev/null || true
+    fi
+    echo "✅ Aegis installed successfully to $INSTALL_DIR/${BINARY_NAME}"
+    echo ""
+    "$INSTALL_DIR/${BINARY_NAME}" version 2>/dev/null || "${GOPATH_BIN}/${BINARY_NAME}" version
+    echo "Run 'aegis --help' to get started."
     exit 0
 fi
 
