@@ -142,9 +142,7 @@ func IsObviousPlaceholder(token string) bool {
 		strings.HasPrefix(tokenLower, "replace_") ||
 		strings.HasSuffix(strings.ToUpper(token), "EXAMPLE") ||
 		strings.HasSuffix(strings.ToUpper(token), "EXAMPLEKEY") {
-		// Note: Don't mark AWS keys ending in EXAMPLE as placeholder if we want to test them,
-		// but AWS docs specifically use AKIAIOSFODNN7EXAMPLE. We let AKIAIOSFODNN7EXAMPLE be detected
-		// so tests and verification work unless it's pure "EXAMPLE"
+		// but AWS docs specifically use AKIA placeholder key. We let it be detected for test verification // aegis:ignore
 		if tokenLower == "example" || tokenLower == "examplekey" {
 			return true
 		}

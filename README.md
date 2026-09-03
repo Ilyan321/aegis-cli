@@ -122,7 +122,7 @@ aegis audit history
 ### 4. Instant String Inspector
 Test any token or suspicious string directly in your terminal without creating a file:
 ```bash
-aegis check "ghp_111122223333444455556666777788889999"
+aegis check "ghp_111122223333444455556666777788889999" <!-- aegis:ignore -->
 ```
 
 ### 5. Structured CI/CD JSON Output
