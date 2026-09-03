@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // ANSI color codes for terminal rendering.

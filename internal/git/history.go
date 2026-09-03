@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"aegis-cli/internal/analyzer"
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // GitObject maps an object SHA to its relative repository path.

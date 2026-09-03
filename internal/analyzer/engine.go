@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 const (

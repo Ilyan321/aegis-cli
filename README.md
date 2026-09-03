@@ -38,14 +38,23 @@ Aegis identifies over 20+ production service credentials and frontier AI API key
 
 ### Installation
 
+Choose any of the three simple methods below:
+
+#### Method 1: Universal One-Line Installer (Linux / macOS / WSL)
 ```bash
-# Clone and build
+curl -fsSL https://raw.githubusercontent.com/Ilyan321/aegis-cli/main/install.sh | bash
+```
+
+#### Method 2: Via Go (for Go developers)
+```bash
+go install github.com/Ilyan321/aegis-cli/cmd/aegis@latest
+```
+
+#### Method 3: Build & Install from Source
+```bash
 git clone https://github.com/Ilyan321/aegis-cli.git
 cd aegis-cli
-make build
-
-# Install binary to system path
-sudo cp bin/aegis /usr/local/bin/
+make install
 ```
 
 ### Git Pre-Commit Hook Setup

@@ -3,7 +3,7 @@ package analyzer
 import (
 	"regexp"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // Rule represents a detection rule for a specific secret category or pattern.

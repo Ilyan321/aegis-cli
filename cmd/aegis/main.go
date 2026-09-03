@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"aegis-cli/internal/analyzer"
-	"aegis-cli/internal/config"
-	"aegis-cli/internal/git"
-	"aegis-cli/internal/reporter"
-	"aegis-cli/internal/validator"
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/internal/config"
+	"github.com/Ilyan321/aegis-cli/internal/git"
+	"github.com/Ilyan321/aegis-cli/internal/reporter"
+	"github.com/Ilyan321/aegis-cli/internal/validator"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 const (

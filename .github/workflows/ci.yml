@@ -1,0 +1,33 @@
+name: Aegis CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+
+      - name: Run Tests with Race Detector
+        run: go test -v -race ./...
+
+      - name: Build Static Binary
+        run: make build
+
+      - name: Verify Pre-Commit Hook Integration
+        run: |
+          ./bin/aegis version
+          ./bin/aegis hook install
+          ./bin/aegis hook uninstall

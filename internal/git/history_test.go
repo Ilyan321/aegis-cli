@@ -3,7 +3,7 @@ package git
 import (
 	"testing"
 
-	"aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/internal/analyzer"
 )
 
 func TestListAllReachableObjects(t *testing.T) {

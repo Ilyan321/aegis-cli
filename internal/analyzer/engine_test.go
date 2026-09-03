@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 func TestEngineRuleDetections(t *testing.T) {

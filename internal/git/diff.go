@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"aegis-cli/internal/analyzer"
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // HunkHeaderRegex matches unified diff hunk headers: @@ -start,len +start,len @@

@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // IgnoreDirectives defines the supported inline comments that suppress findings on a line.

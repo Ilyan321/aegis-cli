@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 // GenerateJSONReport serializes the scan report to formatted JSON.

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 type AWSVerifier struct {
@@ -39,7 +39,7 @@ func (a *AWSVerifier) Verify(ctx context.Context, client *http.Client, token str
 
 	// Sign mock query header with the candidate Access Key ID
 	req.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/20260903/us-east-1/sts/aws4_request, SignedHeaders=host, Signature=0000000000000000000000000000000000000000000000000000000000000000", token))
-	req.Header.Set("User-Agent", "aegis-cli/1.0.0")
+	req.Header.Set("User-Agent", "github.com/Ilyan321/aegis-cli/1.0.0")
 
 	resp, err := client.Do(req)
 	if err != nil {

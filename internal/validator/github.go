@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"aegis-cli/pkg/models"
+	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
 type GitHubVerifier struct {
@@ -38,7 +38,7 @@ func (g *GitHubVerifier) Verify(ctx context.Context, client *http.Client, token 
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", "aegis-cli/1.0.0")
+	req.Header.Set("User-Agent", "github.com/Ilyan321/aegis-cli/1.0.0")
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	resp, err := client.Do(req)
