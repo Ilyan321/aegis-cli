@@ -8,15 +8,15 @@ import (
 
 // Rule represents a detection rule for a specific secret category or pattern.
 type Rule struct {
-	ID             string
-	Description    string
-	Category       models.TokenCategory
-	Severity       models.Severity
-	Prefixes       []string // Fast-rejection gate prefixes; empty if rule must scan all lines
-	Pattern        *regexp.Regexp
+	ID              string
+	Description     string
+	Category        models.TokenCategory
+	Severity        models.Severity
+	Prefixes        []string // Fast-rejection gate prefixes; empty if rule must scan all lines
+	Pattern         *regexp.Regexp
 	RequiresEntropy bool
-	EntropyMin     float64
-	Remediation    models.Remediation
+	EntropyMin      float64
+	Remediation     models.Remediation
 }
 
 var DefaultRules []Rule
@@ -44,14 +44,14 @@ func init() {
 			},
 		},
 		{
-			ID:          "AEGIS-AWS-002",
-			Description: "AWS Secret Access Key Assignment",
-			Category:    models.CategoryAWS,
-			Severity:    models.SeverityCritical,
-			Prefixes:    []string{"aws", "AWS"},
-			Pattern:     regexp.MustCompile(`(?i)(?:aws_secret_access_key|aws_secret_key|aws_secret)\s*[:=]\s*['"]([0-9a-zA-Z/+]{40})['"]`),
+			ID:              "AEGIS-AWS-002",
+			Description:     "AWS Secret Access Key Assignment",
+			Category:        models.CategoryAWS,
+			Severity:        models.SeverityCritical,
+			Prefixes:        []string{"aws", "AWS"},
+			Pattern:         regexp.MustCompile(`(?i)(?:aws_secret_access_key|aws_secret_key|aws_secret)\s*[:=]\s*['"]([0-9a-zA-Z/+]{40})['"]`),
 			RequiresEntropy: true,
-			EntropyMin:  3.2,
+			EntropyMin:      3.2,
 			Remediation: models.Remediation{
 				BlastRadius: models.BlastRadius{
 					Scope:          "AWS Full Identity Compromise",
@@ -137,7 +137,7 @@ func init() {
 			Category:    models.CategoryOpenAI,
 			Severity:    models.SeverityCritical,
 			Prefixes:    []string{"sk-"},
-			Pattern:     regexp.MustCompile(`\b(sk-(?:proj-)?[a-zA-Z0-9_-]{48,128})\b`),
+			Pattern:     regexp.MustCompile(`\b(sk-(?:proj-[a-zA-Z0-9_-]{48,128}|admin-[a-zA-Z0-9_-]{48,128}|[a-zA-Z0-9]{48}))\b`),
 			Remediation: models.Remediation{
 				BlastRadius: models.BlastRadius{
 					Scope:          "OpenAI Platform & Model Quotas",
@@ -145,6 +145,166 @@ func init() {
 					TargetServices: []string{"OpenAI Completions", "Embeddings", "Fine-Tuning"},
 				},
 				ActionRequired: "Revoke key immediately at platform.openai.com/api-keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-ANTHROPIC-001",
+			Description: "Anthropic Claude API Key",
+			Category:    models.CategoryAnthropic,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"sk-ant-api03-"},
+			Pattern:     regexp.MustCompile(`\b(sk-ant-api03-[a-zA-Z0-9_\-]{80,128})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Anthropic Platform & Model Access",
+					Impact:         "Unauthorized Claude model querying, credit drain, and potential prompt leakage.",
+					TargetServices: []string{"Anthropic Messages API", "Claude 3 / 3.5 Models"},
+				},
+				ActionRequired: "Revoke key immediately at console.anthropic.com/settings/keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-HF-001",
+			Description: "Hugging Face User Access Token",
+			Category:    models.CategoryHuggingFace,
+			Severity:    models.SeverityHigh,
+			Prefixes:    []string{"hf_"},
+			Pattern:     regexp.MustCompile(`\b(hf_[a-zA-Z0-9]{34})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Hugging Face Model Hub Access",
+					Impact:         "Read/write access to private models, datasets, spaces, and inference endpoints.",
+					TargetServices: []string{"Hugging Face Hub", "Inference API"},
+				},
+				ActionRequired: "Revoke token at huggingface.co/settings/tokens.",
+			},
+		},
+		{
+			ID:          "AEGIS-GCP-001",
+			Description: "Google Cloud Platform (GCP) API Key",
+			Category:    models.CategoryGCP,
+			Severity:    models.SeverityHigh,
+			Prefixes:    []string{"AIzaSy"},
+			Pattern:     regexp.MustCompile(`\b(AIzaSy[a-zA-Z0-9_\-]{33})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Google Cloud Enabled Services",
+					Impact:         "Direct consumption of enabled GCP APIs (Maps, Firebase, Gemini, Translate, etc.).",
+					TargetServices: []string{"GCP APIs", "Firebase", "Google Maps"},
+				},
+				ActionRequired: "Restrict or delete key in Google Cloud Console > Credentials.",
+			},
+		},
+		{
+			ID:          "AEGIS-DO-001",
+			Description: "DigitalOcean Personal Access Token",
+			Category:    models.CategoryDigitalOcean,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"dop_v1_"},
+			Pattern:     regexp.MustCompile(`\b(dop_v1_[a-f0-9]{64})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "DigitalOcean Cloud Infrastructure",
+					Impact:         "Full provisioning and deletion access to Droplets, Volumes, Kubernetes clusters, and DNS.",
+					TargetServices: []string{"Droplets", "Kubernetes", "Databases", "Spaces"},
+				},
+				ActionRequired: "Revoke token at cloud.digitalocean.com/account/api/tokens.",
+			},
+		},
+		{
+			ID:          "AEGIS-GITLAB-001",
+			Description: "GitLab Personal Access Token",
+			Category:    models.CategoryGitLab,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"glpat-"},
+			Pattern:     regexp.MustCompile(`\b(glpat-[a-zA-Z0-9_\-]{20})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "GitLab Repositories & CI/CD Pipelines",
+					Impact:         "Read/write access to private code, pipeline variable modification, and runner execution.",
+					TargetServices: []string{"GitLab Repositories", "GitLab CI/CD"},
+				},
+				ActionRequired: "Revoke token in GitLab User Settings > Access Tokens.",
+			},
+		},
+		{
+			ID:          "AEGIS-NPM-001",
+			Description: "NPM Access Token",
+			Category:    models.CategoryNPM,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"npm_"},
+			Pattern:     regexp.MustCompile(`\b(npm_[a-zA-Z0-9]{36})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "NPM Package Registry Supply Chain",
+					Impact:         "Publishing unauthorized package releases, software supply chain injection.",
+					TargetServices: []string{"npmjs.com Package Registry"},
+				},
+				ActionRequired: "Revoke token at npmjs.com/settings/tokens and check published package versions.",
+			},
+		},
+		{
+			ID:          "AEGIS-DISCORD-001",
+			Description: "Discord Bot Token",
+			Category:    models.CategoryDiscord,
+			Severity:    models.SeverityHigh,
+			Prefixes:    nil,
+			Pattern:     regexp.MustCompile(`\b([MNO][a-zA-Z0-9_\-.]{23,26}\.[a-zA-Z0-9_\-.]{6}\.[a-zA-Z0-9_\-.]{27,38})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Discord Bot & Guild Impersonation",
+					Impact:         "Send messages, administrative guild actions, webhook abuse.",
+					TargetServices: []string{"Discord Gateway API", "Guild Channels"},
+				},
+				ActionRequired: "Reset bot token in Discord Developer Portal > Bot.",
+			},
+		},
+		{
+			ID:          "AEGIS-TWILIO-001",
+			Description: "Twilio Account SID",
+			Category:    models.CategoryTwilio,
+			Severity:    models.SeverityMedium,
+			Prefixes:    []string{"AC"},
+			Pattern:     regexp.MustCompile(`\b(AC[a-f0-9]{32})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Twilio Telephony & Messaging Account",
+					Impact:         "Used with auth tokens to dispatch SMS, voice calls, and verify services.",
+					TargetServices: []string{"Twilio Programmable SMS", "Twilio Voice"},
+				},
+				ActionRequired: "Rotate Twilio Auth Token associated with this SID in Twilio Console.",
+			},
+		},
+		{
+			ID:          "AEGIS-SENDGRID-001",
+			Description: "SendGrid API Key",
+			Category:    models.CategorySendGrid,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"SG."},
+			Pattern:     regexp.MustCompile(`\b(SG\.[a-zA-Z0-9_\-\.]{66,})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "SendGrid Email Delivery Infrastructure",
+					Impact:         "Dispatch phishing campaigns, read marketing lists, exhaust sending quota.",
+					TargetServices: []string{"SendGrid Mail Send API", "Marketing Campaigns"},
+				},
+				ActionRequired: "Delete and regenerate API key in SendGrid Settings > API Keys.",
+			},
+		},
+		{
+			ID:          "AEGIS-SUPABASE-001",
+			Description: "Supabase Personal Access Token",
+			Category:    models.CategorySupabase,
+			Severity:    models.SeverityCritical,
+			Prefixes:    []string{"sbp_"},
+			Pattern:     regexp.MustCompile(`\b(sbp_[a-f0-9]{40})\b`),
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Supabase Cloud Infrastructure",
+					Impact:         "Administrative access to all Supabase projects, databases, auth, and storage buckets.",
+					TargetServices: []string{"Supabase Management API", "Postgres Databases"},
+				},
+				ActionRequired: "Revoke token in Supabase Dashboard > Account > Access Tokens.",
 			},
 		},
 		{

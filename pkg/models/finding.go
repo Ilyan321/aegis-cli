@@ -44,13 +44,23 @@ const (
 type TokenCategory string
 
 const (
-	CategoryAWS      TokenCategory = "AWS"
-	CategoryGitHub   TokenCategory = "GitHub"
-	CategoryStripe   TokenCategory = "Stripe"
-	CategoryOpenAI   TokenCategory = "OpenAI"
-	CategorySlack    TokenCategory = "Slack"
-	CategoryDatabase TokenCategory = "Database"
-	CategoryGeneric  TokenCategory = "Generic High-Entropy"
+	CategoryAWS          TokenCategory = "AWS"
+	CategoryGitHub       TokenCategory = "GitHub"
+	CategoryStripe       TokenCategory = "Stripe"
+	CategoryOpenAI       TokenCategory = "OpenAI"
+	CategoryAnthropic    TokenCategory = "Anthropic"
+	CategoryHuggingFace  TokenCategory = "HuggingFace"
+	CategoryGCP          TokenCategory = "GCP"
+	CategoryDigitalOcean TokenCategory = "DigitalOcean"
+	CategoryGitLab       TokenCategory = "GitLab"
+	CategoryNPM          TokenCategory = "NPM"
+	CategoryDiscord      TokenCategory = "Discord"
+	CategoryTwilio       TokenCategory = "Twilio"
+	CategorySendGrid     TokenCategory = "SendGrid"
+	CategorySupabase     TokenCategory = "Supabase"
+	CategorySlack        TokenCategory = "Slack"
+	CategoryDatabase     TokenCategory = "Database"
+	CategoryGeneric      TokenCategory = "Generic High-Entropy"
 )
 
 // BlastRadius details the operational and security impact if the token is compromised.
@@ -70,11 +80,11 @@ type Remediation struct {
 
 // VerificationResult details live verification pings performed against provider APIs.
 type VerificationResult struct {
-	Status     VerificationStatus `json:"status"`
-	Provider   string             `json:"provider"`
-	CheckedAt  time.Time          `json:"checked_at,omitempty"`
-	Details    string             `json:"details,omitempty"`
-	LatencyMs  int64              `json:"latency_ms,omitempty"`
+	Status    VerificationStatus `json:"status"`
+	Provider  string             `json:"provider"`
+	CheckedAt time.Time          `json:"checked_at,omitempty"`
+	Details   string             `json:"details,omitempty"`
+	LatencyMs int64              `json:"latency_ms,omitempty"`
 }
 
 // CommitInfo provides metadata about git commits when scanning historical DAG objects.

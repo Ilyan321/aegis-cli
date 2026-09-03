@@ -1,10 +1,10 @@
 package validator
 
 import (
-	"strings"
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,7 +27,6 @@ func TestStructuralDeterminismNeverExfiltratesGenericPasswords(t *testing.T) {
 }
 
 func TestStripeVerifierResponses(t *testing.T) {
-	// Active mock
 	activeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		if auth == "Bearer sk_live_valid" {
@@ -43,13 +42,11 @@ func TestStripeVerifierResponses(t *testing.T) {
 	verifier := &StripeVerifier{endpoint: activeServer.URL}
 	client := activeServer.Client()
 
-	// 1. Test active key
 	resActive, err := verifier.Verify(context.Background(), client, "sk_live_valid")
 	if err != nil || resActive.Status != models.StatusActive {
 		t.Errorf("expected active status, got: %+v (err: %v)", resActive, err)
 	}
 
-	// 2. Test revoked key
 	resRevoked, err := verifier.Verify(context.Background(), client, "sk_live_revoked")
 	if err != nil || resRevoked.Status != models.StatusRevoked {
 		t.Errorf("expected revoked status, got: %+v (err: %v)", resRevoked, err)
@@ -73,7 +70,6 @@ func TestGitHubVerifierResponses(t *testing.T) {
 	verifier := &GitHubVerifier{endpoint: mockServer.URL}
 	client := mockServer.Client()
 
-	// 1. Test active token
 	resActive, err := verifier.Verify(context.Background(), client, "ghp_valid")
 	if err != nil || resActive.Status != models.StatusActive {
 		t.Errorf("expected active status, got: %+v (err: %v)", resActive, err)
@@ -82,10 +78,39 @@ func TestGitHubVerifierResponses(t *testing.T) {
 		t.Errorf("expected scope details, got empty")
 	}
 
-	// 2. Test revoked token
 	resRevoked, err := verifier.Verify(context.Background(), client, "ghp_revoked")
 	if err != nil || resRevoked.Status != models.StatusRevoked {
 		t.Errorf("expected revoked status, got: %+v (err: %v)", resRevoked, err)
+	}
+}
+
+func TestHuggingFaceAndGitLabVerifier(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if strings.Contains(auth, "valid") {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"name": "test-user"}`))
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
+		}
+	}))
+	defer mockServer.Close()
+
+	hfVerifier := &HuggingFaceVerifier{endpoint: mockServer.URL}
+	glVerifier := &GitLabVerifier{endpoint: mockServer.URL}
+	client := mockServer.Client()
+
+	// Hugging Face
+	hfRes, err := hfVerifier.Verify(context.Background(), client, "hf_valid")
+	if err != nil || hfRes.Status != models.StatusActive {
+		t.Errorf("expected HF active status, got: %+v", hfRes)
+	}
+
+	// GitLab
+	glRes, err := glVerifier.Verify(context.Background(), client, "glpat-valid")
+	if err != nil || glRes.Status != models.StatusActive {
+		t.Errorf("expected GitLab active status, got: %+v", glRes)
 	}
 }
 
@@ -108,7 +133,7 @@ func TestOpenAIVerifierQuotaHandling(t *testing.T) {
 func TestAWSVerifierXMLResponses(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		if auth != "" && strings.Contains(auth, "EXIST") {
+		if strings.Contains(auth, "EXIST") {
 			w.WriteHeader(http.StatusForbidden)
 			_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>SignatureDoesNotMatch</Code></Error></ErrorResponse>`))
 		} else {
@@ -121,13 +146,11 @@ func TestAWSVerifierXMLResponses(t *testing.T) {
 	verifier := &AWSVerifier{endpoint: mockServer.URL}
 	client := mockServer.Client()
 
-	// 1. Existing key recognized by AWS
 	resActive, err := verifier.Verify(context.Background(), client, "AKIA00000000000EXIST")
 	if err != nil || resActive.Status != models.StatusActive {
 		t.Errorf("expected SignatureDoesNotMatch to be recognized as active key, got: %+v (err: %v)", resActive, err)
 	}
 
-	// 2. Non-existent key
 	resRevoked, err := verifier.Verify(context.Background(), client, "AKIA0000000000000000")
 	if err != nil || resRevoked.Status != models.StatusRevoked {
 		t.Errorf("expected InvalidClientTokenId to be recognized as revoked key, got: %+v (err: %v)", resRevoked, err)
@@ -144,7 +167,6 @@ func TestVerificationHardTimeout(t *testing.T) {
 	verifier := &StripeVerifier{endpoint: slowServer.URL}
 	client := slowServer.Client()
 
-	// Enforce 50ms context
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 

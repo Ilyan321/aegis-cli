@@ -52,12 +52,18 @@ func NewRegistry() *Registry {
 		limiter: ticker.C,
 	}
 
-	// Register all providers
+	// Register all active providers
 	reg.verifiers = []ProviderVerifier{
 		NewStripeVerifier(),
 		NewGitHubVerifier(),
 		NewOpenAIVerifier(),
 		NewAWSVerifier(),
+		NewHuggingFaceVerifier(),
+		NewGitLabVerifier(),
+		NewNPMVerifier(),
+		NewDigitalOceanVerifier(),
+		NewSendGridVerifier(),
+		NewSupabaseVerifier(),
 	}
 
 	return reg

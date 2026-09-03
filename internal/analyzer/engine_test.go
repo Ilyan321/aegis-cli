@@ -15,6 +15,15 @@ func TestEngineRuleDetections(t *testing.T) {
 	ghKey := "gh" + "p_" + "111122223333444455556666777788889999"
 	stripeKey := "sk_" + "live_" + "51A9999999999999999999999999"
 	openaiKey := "sk-" + "proj-" + "111122223333444455556666777788889999000011112222333344445555"
+	anthropicKey := "sk-" + "ant-" + "api03-abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_abcdefghijklmnopqrstuvwx"
+	hfKey := "h" + "f_" + "abcdefghijklmnopqrstuvwxyz01234567"
+	gcpKey := "AI" + "za" + "SyD1234567890abcdefghijklmnopqrstuv"
+	doKey := "dop" + "_v1_" + "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	gitlabKey := "gl" + "pat-" + "1234567890abcdefghij"
+	npmKey := "np" + "m_" + "1234567890abcdefghijklmnopqrstuvwxyz"
+	twilioKey := "A" + "C" + "0123456789abcdef0123456789abcdef"
+	sendgridKey := "S" + "G." + "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
+	supabaseKey := "sb" + "p_" + "0123456789abcdef0123456789abcdef01234567"
 
 	tests := []struct {
 		name         string
@@ -49,6 +58,69 @@ func TestEngineRuleDetections(t *testing.T) {
 			line:         `openai.api_key = "` + openaiKey + `"`,
 			expectedRule: "AEGIS-OPENAI-001",
 			expectedCat:  models.CategoryOpenAI,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Anthropic Claude Key",
+			line:         `ANTHROPIC_API_KEY="` + anthropicKey + `"`,
+			expectedRule: "AEGIS-ANTHROPIC-001",
+			expectedCat:  models.CategoryAnthropic,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Hugging Face Token",
+			line:         `HF_TOKEN="` + hfKey + `"`,
+			expectedRule: "AEGIS-HF-001",
+			expectedCat:  models.CategoryHuggingFace,
+			shouldMatch:  true,
+		},
+		{
+			name:         "GCP API Key",
+			line:         `google_maps_key = "` + gcpKey + `"`,
+			expectedRule: "AEGIS-GCP-001",
+			expectedCat:  models.CategoryGCP,
+			shouldMatch:  true,
+		},
+		{
+			name:         "DigitalOcean Token",
+			line:         `DO_TOKEN="` + doKey + `"`,
+			expectedRule: "AEGIS-DO-001",
+			expectedCat:  models.CategoryDigitalOcean,
+			shouldMatch:  true,
+		},
+		{
+			name:         "GitLab Token",
+			line:         `GITLAB_TOKEN="` + gitlabKey + `"`,
+			expectedRule: "AEGIS-GITLAB-001",
+			expectedCat:  models.CategoryGitLab,
+			shouldMatch:  true,
+		},
+		{
+			name:         "NPM Token",
+			line:         `//registry.npmjs.org/:_authToken="` + npmKey + `"`,
+			expectedRule: "AEGIS-NPM-001",
+			expectedCat:  models.CategoryNPM,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Twilio Account SID",
+			line:         `TWILIO_ACCOUNT_SID="` + twilioKey + `"`,
+			expectedRule: "AEGIS-TWILIO-001",
+			expectedCat:  models.CategoryTwilio,
+			shouldMatch:  true,
+		},
+		{
+			name:         "SendGrid API Key",
+			line:         `SENDGRID_API_KEY="` + sendgridKey + `"`,
+			expectedRule: "AEGIS-SENDGRID-001",
+			expectedCat:  models.CategorySendGrid,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Supabase Project Token",
+			line:         `SUPABASE_TOKEN="` + supabaseKey + `"`,
+			expectedRule: "AEGIS-SUPABASE-001",
+			expectedCat:  models.CategorySupabase,
 			shouldMatch:  true,
 		},
 		{
