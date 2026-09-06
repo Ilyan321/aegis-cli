@@ -36,6 +36,12 @@ var MockKeywords = []string{
 // HasIgnoreDirective returns true if the line contains an explicit inline ignore comment.
 func HasIgnoreDirective(line string) bool {
 	lineLower := strings.ToLower(line)
+	if strings.Contains(lineLower, "aegis:ignore") || strings.Contains(lineLower, "aegis: ignore") {
+		return true
+	}
+	if strings.Contains(lineLower, "nolint:aegis") || strings.Contains(lineLower, "pragma: allowlist") {
+		return true
+	}
 	for _, dir := range IgnoreDirectives {
 		if strings.Contains(lineLower, dir) {
 			return true
@@ -47,6 +53,8 @@ func HasIgnoreDirective(line string) bool {
 // IsTestPath checks if the given file path is likely a unit test, mock, or fixture file.
 func IsTestPath(filePath string) bool {
 	normalized := strings.ToLower(filepath.ToSlash(filePath))
+	normalized = strings.TrimPrefix(normalized, "./")
+	normalized = strings.TrimPrefix(normalized, "/")
 
 	testDirs := []string{
 		"/test/",
@@ -67,6 +75,10 @@ func IsTestPath(filePath string) bool {
 	}
 
 	base := filepath.Base(normalized)
+	if strings.HasPrefix(base, "test_") {
+		return true
+	}
+
 	testSuffixes := []string{
 		"_test.go",
 		".test.js",
@@ -95,9 +107,15 @@ func AssessConfidence(filePath string, line string, token string) models.Confide
 	lineLower := strings.ToLower(line)
 	tokenLower := strings.ToLower(token)
 
-	// Check if line or token itself contains known mock/test keywords
+	// Remove the token from the line to avoid false positives when high-entropy token contains a mock keyword
+	contextLine := strings.Replace(lineLower, tokenLower, "", 1)
+
+	// Check if surrounding line context contains known mock/test keywords in variable name or context
 	for _, kw := range MockKeywords {
-		if strings.Contains(lineLower, kw) || strings.Contains(tokenLower, kw) {
+		if strings.Contains(contextLine, kw) {
+			return models.ConfidenceLow
+		}
+		if tokenLower == kw || strings.HasPrefix(tokenLower, kw+"_") || strings.HasPrefix(tokenLower, kw+"-") {
 			return models.ConfidenceLow
 		}
 	}
@@ -131,6 +149,8 @@ func IsObviousPlaceholder(token string) bool {
 		"xxxx",
 		"xxxxx",
 		"xxxxxx",
+		"example",
+		"examplekey",
 	}
 	for _, p := range trivialExact {
 		if tokenLower == p {
@@ -138,14 +158,38 @@ func IsObviousPlaceholder(token string) bool {
 		}
 	}
 
-	if strings.HasPrefix(tokenLower, "your_") ||
-		strings.HasPrefix(tokenLower, "replace_") ||
-		strings.HasSuffix(strings.ToUpper(token), "EXAMPLE") ||
-		strings.HasSuffix(strings.ToUpper(token), "EXAMPLEKEY") {
-		// but AWS docs specifically use AKIA placeholder key. We let it be detected for test verification // aegis:ignore
-		if tokenLower == "example" || tokenLower == "examplekey" {
+	// Prefixes indicating placeholders
+	placeholderPrefixes := []string{
+		"your_",
+		"replace_",
+		"insert_",
+		"change_me",
+		"todo_",
+		"sample_",
+		"fake_",
+		"dummy_",
+		"test_dummy",
+		"example_",
+	}
+	for _, prefix := range placeholderPrefixes {
+		if strings.HasPrefix(tokenLower, prefix) {
 			return true
 		}
+	}
+
+	// Explicit dummy or placeholder substrings
+	if strings.Contains(tokenLower, "placeholder") || strings.Contains(tokenLower, "dummy") {
+		return true
+	}
+
+	// AWS documentation specifically uses AKIA...EXAMPLE for testing; allow it
+	if strings.HasPrefix(token, "AKIA") && strings.HasSuffix(token, "EXAMPLE") {
+		return false
+	}
+
+	if strings.HasSuffix(strings.ToUpper(token), "EXAMPLE") ||
+		strings.HasSuffix(strings.ToUpper(token), "EXAMPLEKEY") {
+		return true
 	}
 
 	return false

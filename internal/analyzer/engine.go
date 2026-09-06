@@ -119,24 +119,23 @@ func (e *Engine) ScanReaderWithStats(filePath string, r io.Reader) ([]models.Fin
 	}
 
 	var findings []models.Finding
-	scanner := bufio.NewScanner(bufReader)
-	// Allow large lines up to 2MB buffer
-	buf := make([]byte, 64*1024)
-	scanner.Buffer(buf, 2*1024*1024)
-
 	lineNum := 0
-	for scanner.Scan() {
-		lineNum++
-		line := scanner.Text()
-
-		lineFindings := e.ScanLine(filePath, lineNum, line)
-		if len(lineFindings) > 0 {
-			findings = append(findings, lineFindings...)
+	for {
+		line, readErr := bufReader.ReadString('\n')
+		if len(line) > 0 {
+			lineNum++
+			line = strings.TrimRight(line, "\r\n")
+			lineFindings := e.ScanLine(filePath, lineNum, line)
+			if len(lineFindings) > 0 {
+				findings = append(findings, lineFindings...)
+			}
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return findings, lineNum, fmt.Errorf("error reading %s: %w", filePath, err)
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			return findings, lineNum, fmt.Errorf("error reading %s: %w", filePath, readErr)
+		}
 	}
 
 	return findings, lineNum, nil
@@ -161,6 +160,7 @@ func (e *Engine) ScanLine(filePath string, lineNum int, line string) []models.Fi
 	}
 
 	var findings []models.Finding
+	seenFindingIDs := make(map[string]struct{})
 
 	for _, rule := range e.rules {
 		// Known-Prefix Pre-Filter Gate: If rule defines prefixes, line must contain at least one
@@ -217,9 +217,13 @@ func (e *Engine) ScanLine(filePath string, lineNum int, line string) []models.Fi
 				alphabet = DetectAlphabet(token)
 			}
 
-			confidence := AssessConfidence(filePath, line, token)
 			findingID := models.ComputeFindingHash(filePath, lineNum, rule.ID, token)
+			if _, seen := seenFindingIDs[findingID]; seen {
+				continue
+			}
+			seenFindingIDs[findingID] = struct{}{}
 
+			confidence := AssessConfidence(filePath, line, token)
 			finding := models.Finding{
 				ID:              findingID,
 				RuleID:          rule.ID,
@@ -244,12 +248,28 @@ func (e *Engine) ScanLine(filePath string, lineNum int, line string) []models.Fi
 		}
 	}
 
-	return findings
+	// Filter out duplicate findings where a generic fallback rule matched the exact same token as a specific provider rule
+	var deduplicated []models.Finding
+	specificTokens := make(map[string]bool)
+	for _, f := range findings {
+		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" {
+			specificTokens[f.RawSecret] = true
+		}
+	}
+	for _, f := range findings {
+		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001") && specificTokens[f.RawSecret] {
+			continue
+		}
+		deduplicated = append(deduplicated, f)
+	}
+
+	return deduplicated
 }
 
-// scanLongLinePrefixSampling handles lines exceeding 1,200 characters without regex to prevent ReDoS.
+// scanLongLinePrefixSampling handles lines exceeding 1,200 characters using narrow windowed analysis.
 func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line string) []models.Finding {
 	var findings []models.Finding
+	seenFindingIDs := make(map[string]struct{})
 
 	for _, rule := range e.rules {
 		if len(rule.Prefixes) == 0 {
@@ -264,27 +284,62 @@ func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line s
 					break
 				}
 				absPos := idx + pos
-				// Extract a window around the match
-				windowEnd := absPos + 128
+
+				// Extract a narrow window around the match (e.g. 40 chars before prefix, 160 chars after)
+				windowStart := absPos - 40
+				if windowStart < 0 {
+					windowStart = 0
+				}
+				windowEnd := absPos + len(prefix) + 160
 				if windowEnd > len(line) {
 					windowEnd = len(line)
 				}
-				candidate := line[absPos:windowEnd]
+				window := line[windowStart:windowEnd]
 
-				// End candidate at delimiter
-				delimIdx := strings.IndexAny(candidate, " \t\r\n\"'`<>;,(){}[]")
-				if delimIdx != -1 {
-					candidate = candidate[:delimIdx]
-				}
+				matches := rule.Pattern.FindAllStringSubmatchIndex(window, -1)
+				for _, matchIndices := range matches {
+					if len(matchIndices) < 2 {
+						continue
+					}
 
-				candidate = CleanToken(candidate)
-				if len(candidate) > 0 && rule.Pattern.MatchString(candidate) {
-					token := candidate
-					entropy := CalculateShannonEntropy(token)
-					alphabet := DetectAlphabet(token)
-					confidence := AssessConfidence(filePath, line, token)
+					var token string
+					startCol := windowStart + matchIndices[0]
+					if len(matchIndices) >= 4 && matchIndices[2] >= 0 {
+						token = window[matchIndices[2]:matchIndices[3]]
+						startCol = windowStart + matchIndices[2]
+					} else {
+						token = window[matchIndices[0]:matchIndices[1]]
+					}
+
+					token = CleanToken(token)
+					if len(token) == 0 || IsObviousPlaceholder(token) {
+						continue
+					}
+
+					var entropy float64
+					var alphabet AlphabetType
+					if rule.RequiresEntropy {
+						meets, alph, ent := MeetsEntropyThreshold(token)
+						if !meets && (rule.EntropyMin == 0 || ent < rule.EntropyMin) {
+							continue
+						}
+						if HasLowVarianceOrSequential(token) {
+							continue
+						}
+						entropy = ent
+						alphabet = alph
+					} else {
+						entropy = CalculateShannonEntropy(token)
+						alphabet = DetectAlphabet(token)
+					}
 
 					findingID := models.ComputeFindingHash(filePath, lineNum, rule.ID, token)
+					if _, seen := seenFindingIDs[findingID]; seen {
+						continue
+					}
+					seenFindingIDs[findingID] = struct{}{}
+
+					confidence := AssessConfidence(filePath, line, token)
 					findings = append(findings, models.Finding{
 						ID:              findingID,
 						RuleID:          rule.ID,
@@ -292,7 +347,7 @@ func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line s
 						Category:        rule.Category,
 						FilePath:        filePath,
 						LineNumber:      lineNum,
-						Column:          absPos + 1,
+						Column:          startCol + 1,
 						MaskedValue:     models.MaskSecret(token),
 						RawSecret:       token,
 						Entropy:         entropy,
@@ -311,5 +366,20 @@ func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line s
 		}
 	}
 
-	return findings
+	// Filter out duplicate findings where a generic fallback rule matched the exact same token as a specific provider rule
+	var deduplicated []models.Finding
+	specificTokens := make(map[string]bool)
+	for _, f := range findings {
+		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" {
+			specificTokens[f.RawSecret] = true
+		}
+	}
+	for _, f := range findings {
+		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001") && specificTokens[f.RawSecret] {
+			continue
+		}
+		deduplicated = append(deduplicated, f)
+	}
+
+	return deduplicated
 }

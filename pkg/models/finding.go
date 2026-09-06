@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -144,21 +145,24 @@ type ScanReport struct {
 
 // MaskSecret masks the sensitive characters of a secret while preserving prefix structure for identification.
 func MaskSecret(secret string) string {
-	length := len(secret)
+	runes := []rune(secret)
+	length := len(runes)
 	if length == 0 {
 		return ""
 	}
 	if length <= 4 {
 		return strings.Repeat("*", length)
 	}
-	prefix := secret[:4]
+	prefix := string(runes[:4])
 	return prefix + strings.Repeat("*", length-4)
 }
 
 // ComputeFindingHash computes a deterministic SHA256 hex string for a single finding.
 func ComputeFindingHash(filePath string, lineNumber int, ruleID string, rawSecret string) string {
+	normalizedPath := filepath.ToSlash(filepath.Clean(filePath))
+	normalizedPath = strings.TrimPrefix(normalizedPath, "./")
 	hasher := sha256.New()
-	hasher.Write([]byte(fmt.Sprintf("%s:%d:%s:%s", filePath, lineNumber, ruleID, rawSecret)))
+	hasher.Write([]byte(fmt.Sprintf("%s:%d:%s:%s", normalizedPath, lineNumber, ruleID, rawSecret)))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 

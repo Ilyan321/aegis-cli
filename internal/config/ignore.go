@@ -13,20 +13,48 @@ type IgnoreMatcher struct {
 }
 
 // LoadIgnoreMatcher loads ignore rules from .aegisignore, falling back to defaults if not present.
+// If .aegisignore is not in dir, it searches upward to repository root.
 func LoadIgnoreMatcher(dir string) *IgnoreMatcher {
-	ignorePath := filepath.Join(dir, ".aegisignore")
 	patterns := DefaultIgnorePatterns()
+	if dir == "" {
+		dir = "."
+	}
 
-	file, err := os.Open(ignorePath)
-	if err == nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
+	var ignorePath string
+	candidate := filepath.Join(dir, ".aegisignore")
+	if _, err := os.Stat(candidate); err == nil {
+		ignorePath = candidate
+	} else if absDir, err := filepath.Abs(dir); err == nil {
+		d := absDir
+		for {
+			c := filepath.Join(d, ".aegisignore")
+			if _, err := os.Stat(c); err == nil {
+				ignorePath = c
+				break
 			}
-			patterns = append(patterns, line)
+			if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {
+				break
+			}
+			parent := filepath.Dir(d)
+			if parent == d {
+				break
+			}
+			d = parent
+		}
+	}
+
+	if ignorePath != "" {
+		file, err := os.Open(ignorePath)
+		if err == nil {
+			defer file.Close()
+			scanner := bufio.NewScanner(file)
+			for scanner.Scan() {
+				line := strings.TrimSpace(scanner.Text())
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				patterns = append(patterns, line)
+			}
 		}
 	}
 
@@ -77,12 +105,14 @@ func DefaultIgnorePatterns() []string {
 func (m *IgnoreMatcher) ShouldIgnore(path string) bool {
 	normalized := filepath.ToSlash(path)
 	normalized = strings.TrimPrefix(normalized, "./")
+	normalized = strings.TrimPrefix(normalized, "/")
 
 	base := filepath.Base(normalized)
 
 	for _, pattern := range m.patterns {
 		pattern = filepath.ToSlash(pattern)
 		pattern = strings.TrimPrefix(pattern, "./")
+		pattern = strings.TrimPrefix(pattern, "/")
 
 		// Exact match
 		if normalized == pattern || base == pattern {
@@ -92,11 +122,15 @@ func (m *IgnoreMatcher) ShouldIgnore(path string) bool {
 		// Directory match (e.g. node_modules or .git/)
 		cleanPattern := strings.TrimSuffix(pattern, "/*")
 		cleanPattern = strings.TrimSuffix(cleanPattern, "/")
-		if strings.HasPrefix(normalized, cleanPattern+"/") || base == cleanPattern {
-			return true
+		if cleanPattern != "" {
+			if strings.HasPrefix(normalized, cleanPattern+"/") ||
+				strings.Contains(normalized, "/"+cleanPattern+"/") ||
+				base == cleanPattern {
+				return true
+			}
 		}
 
-		// Glob match (e.g. *.lock, *.png)
+		// Glob match (e.g. *.lock, *.png, *_test.go)
 		if matched, _ := filepath.Match(pattern, base); matched {
 			return true
 		}

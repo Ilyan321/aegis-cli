@@ -104,18 +104,15 @@ func (r *Registry) VerifyFinding(ctx context.Context, finding *models.Finding) {
 	}
 
 	// Enforce 3 req/sec rate limit
-	r.mu.Lock()
 	select {
 	case <-r.limiter:
 	case <-ctx.Done():
-		r.mu.Unlock()
 		finding.Verification = models.VerificationResult{
 			Status:  models.StatusError,
 			Details: "Verification cancelled: " + ctx.Err().Error(),
 		}
 		return
 	}
-	r.mu.Unlock()
 
 	// Enforce hard 1.5s timeout context
 	verifyCtx, cancel := context.WithTimeout(ctx, DefaultTimeout)

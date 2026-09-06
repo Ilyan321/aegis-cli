@@ -35,14 +35,16 @@ func CalculateShannonEntropy(s string) float64 {
 	}
 
 	charCounts := make(map[rune]int, 64)
+	totalRunes := 0
 	for _, r := range s {
 		charCounts[r]++
+		totalRunes++
 	}
 
-	strLen := float64(len(s))
+	total := float64(totalRunes)
 	var entropy float64
 	for _, count := range charCounts {
-		p := float64(count) / strLen
+		p := float64(count) / total
 		if p > 0 {
 			entropy -= p * math.Log2(p)
 		}
@@ -166,7 +168,8 @@ func isHexRune(r rune) bool {
 func isBase64Rune(r rune) bool {
 	return unicode.IsLetter(r) ||
 		unicode.IsDigit(r) ||
-		r == '+' || r == '/' || r == '='
+		r == '+' || r == '/' || r == '=' ||
+		r == '-' || r == '_'
 }
 
 // CleanToken removes surrounding quotes, whitespace, and semicolons from parsed string literals.

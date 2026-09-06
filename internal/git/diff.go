@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Ilyan321/aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/internal/config"
 	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
@@ -37,16 +38,27 @@ func ParseUnifiedDiff(r io.Reader) ([]StagedLine, error) {
 	for scanner.Scan() {
 		text := scanner.Text()
 
+		if strings.HasPrefix(text, "diff --git ") {
+			currentFile = ""
+			continue
+		}
+
 		// File header in unified diff
 		if strings.HasPrefix(text, "+++ ") {
 			target := strings.TrimPrefix(text, "+++ ")
 			target = strings.TrimSpace(target)
+			target = strings.Trim(target, "\"")
 			if target == "/dev/null" {
 				currentFile = "" // Deleted file
 			} else {
 				// Strip leading "b/" or "a/" prefix standard in git diff
-				currentFile = strings.TrimPrefix(target, "b/")
-				currentFile = strings.TrimPrefix(currentFile, "a/")
+				if strings.HasPrefix(target, "b/") {
+					currentFile = strings.TrimPrefix(target, "b/")
+				} else if strings.HasPrefix(target, "a/") {
+					currentFile = strings.TrimPrefix(target, "a/")
+				} else {
+					currentFile = target
+				}
 			}
 			continue
 		}
@@ -145,17 +157,23 @@ func ScanStagedWithStats(engine *analyzer.Engine) ([]models.Finding, int, int, e
 		return nil, 0, 0, err
 	}
 
+	matcher := config.LoadIgnoreMatcher(".")
 	fileMap := make(map[string]struct{})
 	var findings []models.Finding
+	scannedLines := 0
 	for _, sl := range stagedLines {
+		if matcher != nil && matcher.ShouldIgnore(sl.FilePath) {
+			continue
+		}
 		fileMap[sl.FilePath] = struct{}{}
+		scannedLines++
 		lineFindings := engine.ScanLine(sl.FilePath, sl.LineNumber, sl.Content)
 		if len(lineFindings) > 0 {
 			findings = append(findings, lineFindings...)
 		}
 	}
 
-	return findings, len(fileMap), len(stagedLines), nil
+	return findings, len(fileMap), scannedLines, nil
 }
 
 // ScanRange parses merge-base PR diffs and scans each line through the Aegis analyzer engine.
@@ -176,15 +194,21 @@ func ScanRangeWithStats(engine *analyzer.Engine, baseRef, headRef string) ([]mod
 		return nil, 0, 0, err
 	}
 
+	matcher := config.LoadIgnoreMatcher(".")
 	fileMap := make(map[string]struct{})
 	var findings []models.Finding
+	scannedLines := 0
 	for _, sl := range stagedLines {
+		if matcher != nil && matcher.ShouldIgnore(sl.FilePath) {
+			continue
+		}
 		fileMap[sl.FilePath] = struct{}{}
+		scannedLines++
 		lineFindings := engine.ScanLine(sl.FilePath, sl.LineNumber, sl.Content)
 		if len(lineFindings) > 0 {
 			findings = append(findings, lineFindings...)
 		}
 	}
 
-	return findings, len(fileMap), len(stagedLines), nil
+	return findings, len(fileMap), scannedLines, nil
 }

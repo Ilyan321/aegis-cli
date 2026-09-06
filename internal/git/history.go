@@ -8,9 +8,11 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Ilyan321/aegis-cli/internal/analyzer"
+	"github.com/Ilyan321/aegis-cli/internal/config"
 	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
 
@@ -19,6 +21,11 @@ type GitObject struct {
 	SHA  string
 	Path string
 }
+
+var (
+	commitCache   = make(map[string]*models.CommitInfo)
+	commitCacheMu sync.RWMutex
+)
 
 // ListAllReachableObjects returns all objects reachable from all git refs.
 func ListAllReachableObjects() ([]GitObject, error) {
@@ -49,11 +56,19 @@ func ListAllReachableObjects() ([]GitObject, error) {
 
 // GetCommitInfoForObject retrieves the commit metadata that introduced or modified the given object.
 func GetCommitInfoForObject(objectSHA, filePath string) *models.CommitInfo {
-	cmd := exec.Command("git", "log", "-n", "1", fmt.Sprintf("--find-object=%s", objectSHA), "--format=%H\x1f%an\x1f%ad\x1f%s")
+	cacheKey := objectSHA + ":" + filePath
+	commitCacheMu.RLock()
+	if cached, ok := commitCache[cacheKey]; ok {
+		commitCacheMu.RUnlock()
+		return cached
+	}
+	commitCacheMu.RUnlock()
+
+	cmd := exec.Command("git", "log", "-n", "1", fmt.Sprintf("--find-object=%s", objectSHA), "--format=%H\x1f%an\x1f%aI\x1f%s")
 	out, err := cmd.Output()
 	if err != nil || len(out) == 0 {
 		// Fallback: query by file path if object-finder yields nothing
-		cmd = exec.Command("git", "log", "-n", "1", "--format=%H\x1f%an\x1f%ad\x1f%s", "--", filePath)
+		cmd = exec.Command("git", "log", "-n", "1", "--format=%H\x1f%an\x1f%aI\x1f%s", "--", filePath)
 		out, err = cmd.Output()
 		if err != nil || len(out) == 0 {
 			return nil
@@ -65,48 +80,65 @@ func GetCommitInfoForObject(objectSHA, filePath string) *models.CommitInfo {
 		return nil
 	}
 
-	parsedDate, _ := time.Parse("Mon Jan 2 15:04:05 2006 -0700", parts[2])
+	parsedDate, _ := time.Parse(time.RFC3339, parts[2])
 
-	return &models.CommitInfo{
+	info := &models.CommitInfo{
 		Hash:    parts[0],
 		Author:  parts[1],
 		Date:    parsedDate,
 		Message: parts[3],
 	}
+
+	commitCacheMu.Lock()
+	commitCache[cacheKey] = info
+	commitCacheMu.Unlock()
+
+	return info
 }
 
 // ScanHistory traverses the entire Git DAG using native git cat-file streaming.
 func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
+	findings, _, _, err := ScanHistoryWithStats(engine)
+	return findings, err
+}
+
+// ScanHistoryWithStats traverses Git DAG, returning findings, total blobs scanned, and lines scanned.
+func ScanHistoryWithStats(engine *analyzer.Engine) ([]models.Finding, int, int, error) {
 	objects, err := ListAllReachableObjects()
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
 	if len(objects) == 0 {
-		return nil, nil
+		return nil, 0, 0, nil
+	}
+
+	matcher := config.LoadIgnoreMatcher(".")
+
+	// Map SHA to path synchronously before launching background worker to prevent data race
+	shaToPath := make(map[string]string, len(objects))
+	for _, obj := range objects {
+		shaToPath[obj.SHA] = obj.Path
 	}
 
 	cmd := exec.Command("git", "cat-file", "--batch")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open cat-file stdin: %w", err)
+		return nil, 0, 0, fmt.Errorf("failed to open cat-file stdin: %w", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to open cat-file stdout: %w", err)
+		return nil, 0, 0, fmt.Errorf("failed to open cat-file stdout: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start git cat-file: %w", err)
+		return nil, 0, 0, fmt.Errorf("failed to start git cat-file: %w", err)
 	}
 
-	// Map SHA to path
-	shaToPath := make(map[string]string, len(objects))
 	go func() {
 		defer stdin.Close()
 		for _, obj := range objects {
-			shaToPath[obj.SHA] = obj.Path
 			_, _ = io.WriteString(stdin, obj.SHA+"\n")
 		}
 	}()
@@ -115,13 +147,16 @@ func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
 	seenFindingIDs := make(map[string]struct{})
 	reader := bufio.NewReader(stdout)
 
+	blobsScanned := 0
+	linesScanned := 0
+
 	for {
 		headerLine, err := reader.ReadString('\n')
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return allFindings, fmt.Errorf("cat-file read error: %w", err)
+			return allFindings, blobsScanned, linesScanned, fmt.Errorf("cat-file read error: %w", err)
 		}
 
 		headerLine = strings.TrimSpace(headerLine)
@@ -146,13 +181,23 @@ func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
 		buf := make([]byte, size)
 		_, err = io.ReadFull(limitedReader, buf)
 		if err != nil {
-			return allFindings, fmt.Errorf("error reading object %s content: %w", sha, err)
+			return allFindings, blobsScanned, linesScanned, fmt.Errorf("error reading object %s content: %w", sha, err)
 		}
 		// Consume trailing newline after object payload in cat-file --batch
 		_, _ = reader.ReadByte()
 
 		// Only inspect blob objects
 		if objType != "blob" {
+			continue
+		}
+
+		filePath := shaToPath[sha]
+		if filePath == "" {
+			filePath = fmt.Sprintf("blob/%s", sha[:8])
+		}
+
+		// Check .aegisignore
+		if matcher != nil && matcher.ShouldIgnore(filePath) {
 			continue
 		}
 
@@ -170,10 +215,7 @@ func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
 			continue
 		}
 
-		filePath := shaToPath[sha]
-		if filePath == "" {
-			filePath = fmt.Sprintf("blob/%s", sha[:8])
-		}
+		blobsScanned++
 
 		// Scan blob lines
 		scanner := bufio.NewScanner(bytes.NewReader(buf))
@@ -182,6 +224,7 @@ func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
 		for scanner.Scan() {
 			lineNum++
 			line := scanner.Text()
+			linesScanned++
 			findings := engine.ScanLine(filePath, lineNum, line)
 			if len(findings) > 0 {
 				blobFindings = append(blobFindings, findings...)
@@ -201,5 +244,5 @@ func ScanHistory(engine *analyzer.Engine) ([]models.Finding, error) {
 	}
 
 	_ = cmd.Wait()
-	return allFindings, nil
+	return allFindings, blobsScanned, linesScanned, nil
 }

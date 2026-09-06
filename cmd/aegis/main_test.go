@@ -61,6 +61,18 @@ func TestCLIScanJSON(t *testing.T) {
 	}
 }
 
+func TestCLIFlagOrdering(t *testing.T) {
+	// Tests that positional args before flags (e.g. scan . --format=json) correctly parse flags
+	cmd := exec.Command("go", "run", "main.go", "scan", ".", "--format=json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("scan with trailing flag failed: %v, output: %s", err, string(out))
+	}
+	if !strings.Contains(string(out), `"version": "1.0.0"`) {
+		t.Errorf("expected JSON report when flag is after path, got: %s", string(out))
+	}
+}
+
 func TestCLIUnknownCommand(t *testing.T) {
 	cmd := exec.Command("go", "run", "main.go", "statsu")
 	out, err := cmd.CombinedOutput()

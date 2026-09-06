@@ -96,7 +96,7 @@ func PrintConsoleReport(w io.Writer, report *models.ScanReport, noColor bool) {
 	fmt.Fprintf(w, "  Target:       %s (%s)\n", report.ScanTarget, report.ScanType)
 	fmt.Fprintf(w, "  Files/Lines:  %d files / %d lines\n", report.TotalFilesScanned, report.TotalLinesScanned)
 	fmt.Fprintf(w, "  Latency:      %d ms\n", report.DurationMs)
-	fmt.Fprintf(w, "  Severity:     %sCritical: %d%s | %sHigh: %d%s | Medium: %d\n", cRed, report.CriticalCount, cReset, cYellow, report.HighCount, cReset, report.MediumCount)
+	fmt.Fprintf(w, "  Severity:     %sCritical: %d%s | %sHigh: %d%s | Medium: %d | Low: %d\n", cRed, report.CriticalCount, cReset, cYellow, report.HighCount, cReset, report.MediumCount, report.LowCount)
 	if report.ActiveLeaksCount > 0 {
 		fmt.Fprintf(w, "  %sActive Leaks:%s %s%d CONFIRMED LIVE%s\n", cBold, cReset, cRed, report.ActiveLeaksCount, cReset)
 	}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Ilyan321/aegis-cli/pkg/models"
 )
@@ -37,8 +38,13 @@ func (a *AWSVerifier) Verify(ctx context.Context, client *http.Client, token str
 		}, err
 	}
 
-	// Sign mock query header with the candidate Access Key ID
-	req.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/20260903/us-east-1/sts/aws4_request, SignedHeaders=host, Signature=0000000000000000000000000000000000000000000000000000000000000000", token))
+	now := time.Now().UTC()
+	dateStamp := now.Format("20060102")
+	amzDate := now.Format("20060102T150405Z")
+
+	// Sign mock query header with the candidate Access Key ID and current UTC date
+	req.Header.Set("x-amz-date", amzDate)
+	req.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s/us-east-1/sts/aws4_request, SignedHeaders=host;x-amz-date, Signature=0000000000000000000000000000000000000000000000000000000000000000", token, dateStamp))
 	req.Header.Set("User-Agent", "github.com/Ilyan321/aegis-cli/1.0.0")
 
 	resp, err := client.Do(req)

@@ -49,7 +49,7 @@ func init() {
 			Category:        models.CategoryAWS,
 			Severity:        models.SeverityCritical,
 			Prefixes:        []string{"aws", "AWS"},
-			Pattern:         regexp.MustCompile(`(?i)(?:aws_secret_access_key|aws_secret_key|aws_secret)\s*[:=]\s*['"]([0-9a-zA-Z/+]{40})['"]`),
+			Pattern:         regexp.MustCompile(`(?i)(?:aws_secret_access_key|aws_secret_key|aws_secret)\s*[:=]\s*['"]?([0-9a-zA-Z/+]{40})['"]?`),
 			RequiresEntropy: true,
 			EntropyMin:      3.2,
 			Remediation: models.Remediation{
@@ -473,7 +473,7 @@ func init() {
 			Category:    models.CategoryDatabase,
 			Severity:    models.SeverityCritical,
 			Prefixes:    []string{"://"},
-			Pattern:     regexp.MustCompile(`(?i)\b(?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis)://[^:]+:([^@/\s]+)@[a-zA-Z0-9.\-_]+(?::[0-9]+)?/[a-zA-Z0-9._\-]+`),
+			Pattern:     regexp.MustCompile(`(?i)\b(?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis)://[^:]+:([^@/\s]+)@[a-zA-Z0-9.\-_]+(?::[0-9]+)?(?:/[a-zA-Z0-9._\-]*)?`),
 			Remediation: models.Remediation{
 				BlastRadius: models.BlastRadius{
 					Scope:          "Persistent Database Full Access",
@@ -489,7 +489,7 @@ func init() {
 			Category:    models.CategoryGeneric,
 			Severity:    models.SeverityHigh,
 			Prefixes:    nil, // Evaluated on candidate lines
-			Pattern:     regexp.MustCompile(`(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|bearer[_-]?token|app[_-]?secret)\s*[:=]\s*['"]([a-zA-Z0-9_\-\.\+/=]{16,128})['"]`),
+			Pattern:     regexp.MustCompile(`(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|bearer[_-]?token|app[_-]?secret)\s*[:=]\s*['"]?([a-zA-Z0-9_\-\.\+/=]{16,128})['"]?`),
 			RequiresEntropy: true,
 			EntropyMin:  4.2,
 			Remediation: models.Remediation{
