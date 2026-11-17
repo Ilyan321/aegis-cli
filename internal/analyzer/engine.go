@@ -469,6 +469,24 @@ func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line s
 		}
 		window := line[windowStart:windowEnd]
 
+		// Fast pre-filter: check if the RHS contiguous token has at least 16 candidate chars
+		relEq := absPos - windowStart
+		rhsPart := strings.TrimLeft(window[relEq+1:], " \t\"'")
+		tokenLen := 0
+		for i := 0; i < len(rhsPart); i++ {
+			b := rhsPart[i]
+			if (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') ||
+				b == '-' || b == '_' || b == '.' || b == '+' || b == '/' || b == '=' {
+				tokenLen++
+			} else {
+				break
+			}
+		}
+		if tokenLen < 16 {
+			eqIdx = absPos + 1
+			continue
+		}
+
 		// 1. Run prefix-less rules on this window (e.g. AEGIS-GEN-001)
 		for _, rule := range e.rules {
 			if len(rule.Prefixes) > 0 {
