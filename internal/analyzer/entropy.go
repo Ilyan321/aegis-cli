@@ -91,7 +91,7 @@ func MeetsEntropyThreshold(s string) (bool, AlphabetType, float64) {
 		if length >= MinLengthHex && entropy >= ThresholdHex {
 			// Specific mitigation: 40-character hex string is typical Git commit SHA
 			// Git commit SHAs rarely exceed 3.9 entropy unless truly random high-entropy key
-			if length == 40 && entropy < 3.95 {
+			if length == 40 && entropy < 3.98 {
 				return false, alphabet, entropy
 			}
 			return true, alphabet, entropy

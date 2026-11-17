@@ -140,3 +140,37 @@ func TestExtractRHSToken(t *testing.T) {
 		})
 	}
 }
+
+
+func BenchmarkCalculateShannonEntropy(b *testing.B) {
+	token := "9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = CalculateShannonEntropy(token)
+	}
+}
+
+func BenchmarkDetectAlphabet(b *testing.B) {
+	token := "9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = DetectAlphabet(token)
+	}
+}
+
+func BenchmarkExtractRHSToken(b *testing.B) {
+	line := "RAW_SECRET=9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ExtractRHSToken(line)
+	}
+}
+
+func BenchmarkUnprefixedEntropyScan(b *testing.B) {
+	engine := NewEngine()
+	line := "RAW_SECRET=9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = engine.ScanLine("app.env", 1, line)
+	}
+}
