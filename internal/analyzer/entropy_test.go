@@ -105,3 +105,38 @@ func TestCleanToken(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractRHSToken(t *testing.T) {
+	secret := "9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+
+	tests := []struct {
+		line     string
+		expected string
+		note     string
+	}{
+		// Should extract
+		{"RAW_SECRET=" + secret, secret, "plain env var — original bug case"},
+		{"MY_TOKEN: \"" + secret + "\"", secret, "YAML colon with double-quoted value"},
+		{"KEY='" + secret + "'", secret, "single-quoted value"},
+		{"KEY=" + secret + "=trailing=extra", secret + "=trailing=extra", "extra '=' signs in value are kept"},
+
+		// Should NOT extract
+		{"NO_ASSIGNMENT_HERE", "", "no operator"},
+		{"DB_PASSWORD=short", "", "value too short (< 20 chars)"},
+		{"DATABASE_URL=postgres://user:pass@host:5432/db", "", "connection string — rejected (contains ://)"},
+		{"http://something.com/path", "", "bare URL line — colon is scheme separator"},
+		{"https://api.example.com/v1/endpoint", "", "https bare URL line"},
+		{"COMMENT=this is a multi word value that is long enough", "", "whitespace inside value — rejected"},
+		{"KEY=", "", "empty RHS"},
+		{"HOST=localhost", "", "value too short"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.note, func(t *testing.T) {
+			got := ExtractRHSToken(tt.line)
+			if got != tt.expected {
+				t.Errorf("ExtractRHSToken(%q)\n  got:  %q\n  want: %q", tt.line, got, tt.expected)
+			}
+		})
+	}
+}

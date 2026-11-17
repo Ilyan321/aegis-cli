@@ -182,3 +182,58 @@ func CleanToken(s string) string {
 	}
 	return s
 }
+
+// ExtractRHSToken splits a KEY=VALUE (or KEY: VALUE) assignment line and returns
+// the cleaned right-hand side token when it is a viable entropy-scan candidate.
+//
+// Split strategy: '=' is preferred (env / config style); ':' is used only as a
+// fallback when no '=' is present (YAML / TOML bare-key style). Only the first
+// delimiter is honoured so that values containing extra '=' or ':' are kept intact.
+//
+// Returns "" when any of the following are true:
+//   - no assignment operator is found
+//   - the raw RHS starts with "//" (bare URL line such as "http://…")
+//   - the cleaned token is shorter than MinLengthBase64 (20 chars)
+//   - the token contains "://" (a connection string; covered by AEGIS-DB-001)
+//   - the token contains internal whitespace (prose, not a credential)
+func ExtractRHSToken(line string) string {
+	line = strings.TrimSpace(line)
+	if len(line) == 0 {
+		return ""
+	}
+
+	var rhs string
+
+	if idx := strings.IndexByte(line, '='); idx >= 0 {
+		rhs = line[idx+1:]
+	} else if idx := strings.IndexByte(line, ':'); idx >= 0 {
+		rhs = line[idx+1:]
+	} else {
+		return ""
+	}
+
+	// Guard: raw RHS that opens with "//" is the path of a URL scheme (e.g. "//host/…")
+	if strings.HasPrefix(strings.TrimSpace(rhs), "//") {
+		return ""
+	}
+
+	token := CleanToken(rhs)
+
+	if len(token) < MinLengthBase64 {
+		return ""
+	}
+
+	// Connection strings are handled by AEGIS-DB-001; skip here to avoid duplicates.
+	if strings.Contains(token, "://") {
+		return ""
+	}
+
+	// Prose / multi-word values are not secrets.
+	for _, r := range token {
+		if unicode.IsSpace(r) {
+			return ""
+		}
+	}
+
+	return token
+}

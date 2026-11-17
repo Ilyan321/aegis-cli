@@ -85,11 +85,30 @@ func SaveCloudConfig(cfg *CloudConfig) error {
 	return os.WriteFile(path, data, 0600)
 }
 
+type SyncResponse struct {
+	ScanRunID         string `json:"scan_run_id"`
+	RepositoryID      string `json:"repository_id"`
+	RepositoryName    string `json:"repository_name"`
+	IncidentsRecorded int    `json:"incidents_recorded"`
+	ActiveLeaks       int    `json:"active_leaks"`
+	Message           string `json:"message"`
+	PlatformURL       string `json:"platform_url,omitempty"`
+}
+
 // SyncReportToPlatform streams the scan report to Aegis Platform backend.
 func SyncReportToPlatform(report *models.ScanReport, targetDir string) (string, error) {
+	res, err := SyncReportToPlatformDetails(report, targetDir)
+	if err != nil {
+		return "", err
+	}
+	return res.ScanRunID, nil
+}
+
+// SyncReportToPlatformDetails streams the scan report and returns complete synchronization metadata.
+func SyncReportToPlatformDetails(report *models.ScanReport, targetDir string) (*SyncResponse, error) {
 	cfg, err := LoadCloudConfig()
 	if err != nil || cfg.APIToken == "" {
-		return "", fmt.Errorf("not logged in. Run 'aegis login' to connect your terminal to the Aegis Platform")
+		return nil, fmt.Errorf("not logged in. Run 'aegis login' to connect your terminal to the Aegis Platform")
 	}
 
 	repoName := getGitRepoName(targetDir)
@@ -118,13 +137,13 @@ func SyncReportToPlatform(report *models.ScanReport, targetDir string) (string, 
 
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	endpoint := fmt.Sprintf("%s/api/v1/scans/cli", cfg.APIURL)
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cfg.APIToken))
@@ -132,22 +151,20 @@ func SyncReportToPlatform(report *models.ScanReport, targetDir string) (string, 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to reach Aegis API (%s): %w", cfg.APIURL, err)
+		return nil, fmt.Errorf("failed to reach Aegis API (%s): %w", cfg.APIURL, err)
 	}
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("platform returned HTTP %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("platform returned HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	var resData struct {
-		ScanRunID string `json:"scan_run_id"`
-		Message   string `json:"message"`
-	}
+	var resData SyncResponse
 	_ = json.Unmarshal(respBody, &resData)
+	resData.PlatformURL = cfg.APIURL
 
-	return resData.ScanRunID, nil
+	return &resData, nil
 }
 
 func getGitRepoName(dir string) string {

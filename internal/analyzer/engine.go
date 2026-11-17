@@ -248,22 +248,101 @@ func (e *Engine) ScanLine(filePath string, lineNum int, line string) []models.Fi
 		}
 	}
 
+	// Stage 3: Generic un-prefixed Shannon entropy fallback scanner (fixes issue #1)
+	alreadyFound := make(map[string]struct{})
+	for _, f := range findings {
+		alreadyFound[f.RawSecret] = struct{}{}
+	}
+	entropyFindings := e.entropyFallbackScan(filePath, lineNum, line, alreadyFound)
+	if len(entropyFindings) > 0 {
+		findings = append(findings, entropyFindings...)
+	}
+
 	// Filter out duplicate findings where a generic fallback rule matched the exact same token as a specific provider rule
 	var deduplicated []models.Finding
 	specificTokens := make(map[string]bool)
 	for _, f := range findings {
-		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" {
+		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" && f.RuleID != "AEGIS-ENT-001" {
 			specificTokens[f.RawSecret] = true
 		}
 	}
 	for _, f := range findings {
-		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001") && specificTokens[f.RawSecret] {
+		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001" || f.RuleID == "AEGIS-ENT-001") && specificTokens[f.RawSecret] {
 			continue
 		}
 		deduplicated = append(deduplicated, f)
 	}
 
 	return deduplicated
+}
+
+// entropyFallbackScan inspects RHS tokens on assignment lines for high Shannon entropy
+// when no specific pattern matched the token.
+func (e *Engine) entropyFallbackScan(
+	filePath string,
+	lineNum int,
+	line string,
+	alreadyFound map[string]struct{},
+) []models.Finding {
+	token := ExtractRHSToken(line)
+	if token == "" {
+		return nil
+	}
+
+	// Fast check: Skip if already caught by a prior rule
+	if _, caught := alreadyFound[token]; caught {
+		return nil
+	}
+
+	if IsObviousPlaceholder(token) {
+		return nil
+	}
+
+	meets, alphabet, entropy := MeetsEntropyThreshold(token)
+	if !meets {
+		return nil
+	}
+
+	if HasLowVarianceOrSequential(token) {
+		return nil
+	}
+
+	findingID := models.ComputeFindingHash(filePath, lineNum, "AEGIS-ENT-001", token)
+	confidence := AssessConfidence(filePath, line, token)
+
+	col := strings.Index(line, token)
+	if col < 0 {
+		col = 0
+	}
+
+	return []models.Finding{
+		{
+			ID:              findingID,
+			RuleID:          "AEGIS-ENT-001",
+			RuleDescription: "Generic High-Entropy Un-Prefixed Assignment",
+			Category:        models.CategoryGeneric,
+			FilePath:        filePath,
+			LineNumber:      lineNum,
+			Column:          col + 1,
+			MaskedValue:     models.MaskSecret(token),
+			RawSecret:       token,
+			Entropy:         entropy,
+			EntropyAlphabet: string(alphabet),
+			Severity:        models.SeverityHigh,
+			Confidence:      confidence,
+			Verification: models.VerificationResult{
+				Status: models.StatusUnverified,
+			},
+			Remediation: models.Remediation{
+				BlastRadius: models.BlastRadius{
+					Scope:          "Unknown Secret Exposure",
+					Impact:         "High-entropy un-prefixed credential exposure; risk of authentication compromise.",
+					TargetServices: []string{"Internal Services", "Authentication Gateways"},
+				},
+				ActionRequired: "Move hardcoded secret to environment variables or secret manager.",
+			},
+		},
+	}
 }
 
 // scanLongLinePrefixSampling handles lines exceeding 1,200 characters using narrow windowed analysis.
@@ -366,16 +445,128 @@ func (e *Engine) scanLongLinePrefixSampling(filePath string, lineNum int, line s
 		}
 	}
 
+	// Windowed sampling for prefix-less rules (e.g. AEGIS-GEN-001) and un-prefixed entropy
+	// Scan around '=' assignment operators in the long line
+	eqIdx := 0
+	sampleCount := 0
+	const maxLongLineSamples = 300
+
+	for sampleCount < maxLongLineSamples && eqIdx < len(line) {
+		pos := strings.IndexByte(line[eqIdx:], '=')
+		if pos == -1 {
+			break
+		}
+		absPos := eqIdx + pos
+		sampleCount++
+
+		windowStart := absPos - 60
+		if windowStart < 0 {
+			windowStart = 0
+		}
+		windowEnd := absPos + 160
+		if windowEnd > len(line) {
+			windowEnd = len(line)
+		}
+		window := line[windowStart:windowEnd]
+
+		// 1. Run prefix-less rules on this window (e.g. AEGIS-GEN-001)
+		for _, rule := range e.rules {
+			if len(rule.Prefixes) > 0 {
+				continue
+			}
+			matches := rule.Pattern.FindAllStringSubmatchIndex(window, -1)
+			for _, matchIndices := range matches {
+				if len(matchIndices) < 2 {
+					continue
+				}
+				var token string
+				startCol := windowStart + matchIndices[0]
+				if len(matchIndices) >= 4 && matchIndices[2] >= 0 {
+					token = window[matchIndices[2]:matchIndices[3]]
+					startCol = windowStart + matchIndices[2]
+				} else {
+					token = window[matchIndices[0]:matchIndices[1]]
+				}
+
+				token = CleanToken(token)
+				if len(token) == 0 || IsObviousPlaceholder(token) {
+					continue
+				}
+
+				var entropy float64
+				var alphabet AlphabetType
+				if rule.RequiresEntropy {
+					meets, alph, ent := MeetsEntropyThreshold(token)
+					if !meets && (rule.EntropyMin == 0 || ent < rule.EntropyMin) {
+						continue
+					}
+					if HasLowVarianceOrSequential(token) {
+						continue
+					}
+					entropy = ent
+					alphabet = alph
+				} else {
+					entropy = CalculateShannonEntropy(token)
+					alphabet = DetectAlphabet(token)
+				}
+
+				findingID := models.ComputeFindingHash(filePath, lineNum, rule.ID, token)
+				if _, seen := seenFindingIDs[findingID]; seen {
+					continue
+				}
+				seenFindingIDs[findingID] = struct{}{}
+
+				confidence := AssessConfidence(filePath, line, token)
+				findings = append(findings, models.Finding{
+					ID:              findingID,
+					RuleID:          rule.ID,
+					RuleDescription: rule.Description,
+					Category:        rule.Category,
+					FilePath:        filePath,
+					LineNumber:      lineNum,
+					Column:          startCol + 1,
+					MaskedValue:     models.MaskSecret(token),
+					RawSecret:       token,
+					Entropy:         entropy,
+					EntropyAlphabet: string(alphabet),
+					Severity:        rule.Severity,
+					Confidence:      confidence,
+					Verification: models.VerificationResult{
+						Status: models.StatusUnverified,
+					},
+					Remediation: rule.Remediation,
+				})
+			}
+		}
+
+		// 2. Run Stage 3 entropyFallbackScan on this window
+		alreadyFound := make(map[string]struct{})
+		for _, f := range findings {
+			alreadyFound[f.RawSecret] = struct{}{}
+		}
+		entFindings := e.entropyFallbackScan(filePath, lineNum, window, alreadyFound)
+		for _, ef := range entFindings {
+			if _, seen := seenFindingIDs[ef.ID]; seen {
+				continue
+			}
+			seenFindingIDs[ef.ID] = struct{}{}
+			ef.Column = windowStart + ef.Column
+			findings = append(findings, ef)
+		}
+
+		eqIdx = absPos + 1
+	}
+
 	// Filter out duplicate findings where a generic fallback rule matched the exact same token as a specific provider rule
 	var deduplicated []models.Finding
 	specificTokens := make(map[string]bool)
 	for _, f := range findings {
-		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" {
+		if f.RuleID != "AEGIS-GEN-001" && f.RuleID != "AEGIS-GCP-001" && f.RuleID != "AEGIS-ENT-001" {
 			specificTokens[f.RawSecret] = true
 		}
 	}
 	for _, f := range findings {
-		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001") && specificTokens[f.RawSecret] {
+		if (f.RuleID == "AEGIS-GEN-001" || f.RuleID == "AEGIS-GCP-001" || f.RuleID == "AEGIS-ENT-001") && specificTokens[f.RawSecret] {
 			continue
 		}
 		deduplicated = append(deduplicated, f)

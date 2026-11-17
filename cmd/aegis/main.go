@@ -670,12 +670,18 @@ func runScanCommand(args []string) {
 		if strings.ToLower(opts.Format) != "json" {
 			fmt.Println("\n[Aegis Cloud] Streaming findings to Aegis Platform Control Plane...")
 		}
-		scanID, syncErr := config.SyncReportToPlatform(report, targetPath)
+		syncRes, syncErr := config.SyncReportToPlatformDetails(report, targetPath)
 		if strings.ToLower(opts.Format) != "json" {
 			if syncErr != nil {
 				fmt.Fprintf(os.Stderr, "  [WARN] Cloud sync failed: %v\n", syncErr)
 			} else {
-				fmt.Printf("  [OK] Scan synchronized to dashboard (Scan ID: %s)\n", scanID)
+				fmt.Printf("  [OK] Scan synchronized to control plane (Scan ID: %s)\n", syncRes.ScanRunID)
+				fmt.Printf("  [OK] Incidents cataloged: %d recorded | %d active live leak(s)\n", syncRes.IncidentsRecorded, syncRes.ActiveLeaks)
+				dashboardURL := syncRes.PlatformURL
+				if dashboardURL == "" {
+					dashboardURL = "https://aegis-platform.ilyankhan.tech"
+				}
+				fmt.Printf("  [OK] Triage Dashboard: %s\n", dashboardURL)
 			}
 		}
 	}

@@ -203,6 +203,30 @@ func TestEngineRuleDetections(t *testing.T) {
 			expectedCat:  models.CategoryAWS,
 			shouldMatch:  false,
 		},
+		{
+			name:         "Un-prefixed generic secret assignment (AEGIS-GEN-001)",
+			line:         `RAW_SECRET=9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k`,
+			expectedRule: "AEGIS-GEN-001",
+			expectedCat:  models.CategoryGeneric,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Un-prefixed arbitrary variable name with high entropy (AEGIS-ENT-001)",
+			line:         `ARBITRARY_BLOB=9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k`,
+			expectedRule: "AEGIS-ENT-001",
+			expectedCat:  models.CategoryGeneric,
+			shouldMatch:  true,
+		},
+		{
+			name:         "Un-prefixed low-entropy value should NOT match",
+			line:         `DB_PASS=password123`,
+			shouldMatch:  false,
+		},
+		{
+			name:         "Un-prefixed placeholder should NOT match",
+			line:         `MY_SECRET=your_secret_key_here`,
+			shouldMatch:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -298,5 +322,48 @@ func BenchmarkMinifiedLongLineScan(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = engine.ScanLine("vendor.min.js", 1, line)
+	}
+}
+
+// TestEntropyDeduplicationAndNoDoubleFire verifies that specific provider detections
+// suppress generic and pure-entropy fallbacks (AEGIS-GEN-001 and AEGIS-ENT-001) for the same token.
+func TestEntropyDeduplicationAndNoDoubleFire(t *testing.T) {
+	engine := NewEngine()
+
+	stripeKey := "sk_" + "live_" + "51A9999999999999999999999999"
+	line := "STRIPE_KEY=" + stripeKey
+
+	findings := engine.ScanLine("config.env", 1, line)
+	if len(findings) != 1 {
+		t.Fatalf("expected exactly 1 finding for Stripe key, got %d: %+v", len(findings), findings)
+	}
+	if findings[0].RuleID != "AEGIS-STRIPE-001" {
+		t.Errorf("expected finding rule to be AEGIS-STRIPE-001, got %s", findings[0].RuleID)
+	}
+}
+
+// TestMinifiedLineGenericEntropyDetection verifies that long minified lines detect
+// un-prefixed high-entropy credentials.
+func TestMinifiedLineGenericEntropyDetection(t *testing.T) {
+	engine := NewEngine()
+
+	padding := strings.Repeat("var x=1;var y=2;", 100)
+	secret := "9fA7xK2mP4vL8zQ1wR5tY3sU6iO0bE2c8vN3mQ7wX1zL4k"
+	longLine := padding + `var RAW_SECRET="` + secret + `";` + padding
+
+	findings := engine.ScanLine("app.min.js", 1, longLine)
+	if len(findings) == 0 {
+		t.Fatalf("expected finding on minified long line with RAW_SECRET, got 0")
+	}
+
+	found := false
+	for _, f := range findings {
+		if f.RawSecret == secret {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected token %s in findings, got: %+v", secret, findings)
 	}
 }

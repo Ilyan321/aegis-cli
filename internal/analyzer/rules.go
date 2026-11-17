@@ -488,8 +488,11 @@ func init() {
 			Description: "Generic High-Entropy Credential Assignment",
 			Category:    models.CategoryGeneric,
 			Severity:    models.SeverityHigh,
-			Prefixes:    nil, // Evaluated on candidate lines
-			Pattern:     regexp.MustCompile(`(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|bearer[_-]?token|app[_-]?secret)\s*[:=]\s*['"]?([a-zA-Z0-9_\-\.\+/=]{16,128})['"]?`),
+			Prefixes:    nil, // No prefix gate: suffix-matching catches RAW_, DB_, CUSTOM_, etc. (fixes #1)
+			// Matches any LHS variable name ending with a secret-indicating suffix:
+			// _key, _secret, _token, _password, _passwd, _pass, _pwd,
+			// _credential, _cred, _auth, _apikey, api_key
+			Pattern: regexp.MustCompile(`(?i)(?:^|[\s,;])[a-zA-Z0-9_]*(?:_key|_secret|_token|_password|_passwd|_pass|_pwd|_credential|_cred|_auth|_apikey|api_key)\s*[:=]\s*['"]?([a-zA-Z0-9_\-\.\+/=]{16,128})['"]?`),
 			RequiresEntropy: true,
 			EntropyMin:  4.2,
 			Remediation: models.Remediation{
